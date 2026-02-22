@@ -7,7 +7,6 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 
 if (import.meta.env.DEV) {
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
   import('@axe-core/react').then((axe) => {
     axe.default(React, ReactDOM, 1000);
   });
