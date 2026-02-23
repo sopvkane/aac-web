@@ -1,7 +1,7 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { ComposePage } from "./pages/ComposePage";
-import { PhrasesPage } from "./pages/PhrasesPage";
 import { cn } from "./lib/cn";
+import { ConversationPage } from "./pages/ConversationPage";
+import { PhrasesPage } from "./pages/PhrasesPage";
 
 function SkipLink() {
   return (
@@ -19,12 +19,12 @@ export default function App() {
     <>
       <SkipLink />
 
-      <Tabs.Root defaultValue="compose">
+      <Tabs.Root defaultValue="conversation">
         <nav className="sticky top-0 z-40 border-b-2 border-indigo-200 bg-white/70 backdrop-blur">
           <div className="mx-auto flex max-w-[1100px] items-center justify-center p-4">
             <Tabs.List className="flex gap-3 rounded-3xl bg-indigo-50 p-2 border-2 border-indigo-100 shadow-sm">
               <Tabs.Trigger
-                value="compose"
+                value="conversation"
                 className={cn(
                   "min-h-[56px] rounded-2xl px-8 text-lg font-extrabold transition",
                   "data-[state=active]:bg-indigo-600 data-[state=active]:text-white",
@@ -33,11 +33,11 @@ export default function App() {
                   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 )}
               >
-                Compose
+                Conversation
               </Tabs.Trigger>
 
               <Tabs.Trigger
-                value="phrases"
+                value="caregiver"
                 className={cn(
                   "min-h-[56px] rounded-2xl px-8 text-lg font-extrabold transition",
                   "data-[state=active]:bg-indigo-600 data-[state=active]:text-white",
@@ -46,20 +46,20 @@ export default function App() {
                   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 )}
               >
-                Phrases
+                Caregiver tools
               </Tabs.Trigger>
             </Tabs.List>
           </div>
         </nav>
 
         <main id="main" className="mx-auto max-w-[1100px] p-6 sm:p-10">
-          <Tabs.Content value="compose">
+          <Tabs.Content value="conversation">
             <div className="rounded-[28px] border-2 border-indigo-100 bg-white/70 backdrop-blur p-6 sm:p-8 shadow-[var(--shadow)]">
-              <ComposePage />
+              <ConversationPage />
             </div>
           </Tabs.Content>
 
-          <Tabs.Content value="phrases">
+          <Tabs.Content value="caregiver">
             <div className="rounded-[28px] border-2 border-indigo-100 bg-white/70 backdrop-blur p-6 sm:p-8 shadow-[var(--shadow)]">
               <PhrasesPage />
             </div>
