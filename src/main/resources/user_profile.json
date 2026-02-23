@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 2,
+
+  "user": {
+    "id": "user-001",
+    "name": "Sophie",
+    "preferredName": "Sophie",
+    "ageBand": "child",
+    "language": "en-GB",
+    "readingLevel": "low",
+    "communicationLevel": "simple_phrases",
+    "tone": "friendly_calm"
+  },
+
+  "style": {
+    "yesPrefix": "Yes, please. I would like ",
+    "noText": "No, thank you.",
+    "repeatText": "Can you say that again, please?",
+    "helpText": "Can you help me, please?",
+    "showMeText": "Can you show me, please?",
+    "notSureText": "I'm not sure."
+  },
+
+  "preferences": {
+    "likes": {
+      "drinks": ["Water", "Apple juice", "Milk"],
+      "foods": ["Yogurt", "Toast", "Pasta", "Chicken"],
+      "snacks": ["Fruit", "Crisps"],
+      "activities": ["Drawing", "Minecraft", "Music"],
+      "topics": ["Animals", "Cartoons", "Games"]
+    },
+    "dislikes": {
+      "drinks": ["Fizzy drinks"],
+      "foods": ["Spicy food"],
+      "snacks": [],
+      "activities": ["Loud games"],
+      "topics": []
+    }
+  },
+
+  "communication": {
+    "maxReplyWords": 10,
+    "preferConcreteOptions": true,
+    "avoidAbstractResponses": true,
+    "preferNounsForLabels": true,
+    "usePolitePhrases": true,
+    "allowEmojisInLabels": true,
+    "buttonCount": 3,
+    "moreOptionsMaxItemsPerGroup": 8
+  },
+
+  "sensoryAndComfort": {
+    "sensitivities": ["Loud noises", "Bright lights"],
+    "calmingStrategies": ["Quiet space", "Deep breaths", "Music"],
+    "motivators": ["Sticker", "Screen time", "Praise"]
+  },
+
+  "locations": {
+    "HOME": {
+      "displayName": "Home",
+      "rules": [
+        "Ask before having fizzy drinks.",
+        "Hot drinks only with an adult."
+      ],
+      "availability": {
+        "drinks": ["Water", "Apple juice", "Milk"],
+        "foods": ["Toast", "Yogurt", "Pasta", "Sandwich"],
+        "activities": ["Drawing", "Minecraft", "TV", "Board game"]
+      },
+      "people": {
+        "caregivers": ["Mum", "Dad"],
+        "others": []
+      }
+    },
+    "SCHOOL": {
+      "displayName": "School",
+      "rules": [
+        "Water only in class.",
+        "Ask the teacher before leaving the room."
+      ],
+      "availability": {
+        "drinks": ["Water"],
+        "foods": ["Fruit", "Sandwich"],
+        "activities": ["Reading", "Drawing", "Break time"]
+      },
+      "people": {
+        "caregivers": ["Teacher", "Assistant"],
+        "others": ["Friend"]
+      }
+    },
+    "OUT": {
+      "displayName": "Out",
+      "rules": [
+        "Stay with an adult.",
+        "Ask before choosing food or drinks."
+      ],
+      "availability": {
+        "drinks": ["Water", "Juice"],
+        "foods": ["Fruit", "Sandwich"],
+        "activities": ["Walk", "Park", "Shop"]
+      },
+      "people": {
+        "caregivers": ["Adult"],
+        "others": []
+      }
+    }
+  },
+
+  "needsAndPhrases": {
+    "bathroom": {
+      "urgent": {
+        "label": "Toilet now",
+        "text": "I need the toilet now, please."
+      },
+      "soon": {
+        "label": "Toilet soon",
+        "text": "I need the toilet soon, please."
+      },
+      "help": {
+        "label": "Help",
+        "text": "Can you help me get to the toilet, please?"
+      }
+    },
+    "pain": {
+      "tummy": {
+        "label": "My tummy",
+        "text": "My tummy hurts. Can you help me, please?"
+      },
+      "head": {
+        "label": "My head",
+        "text": "My head hurts. Can you help me, please?"
+      },
+      "sick": {
+        "label": "I feel sick",
+        "text": "I feel sick. Can you help me, please?"
+      }
+    },
+    "help": {
+      "general": {
+        "label": "Help",
+        "text": "Can you help me, please?"
+      },
+      "repeat": {
+        "label": "Again",
+        "text": "Can you say that again, please?"
+      },
+      "show": {
+        "label": "Show me",
+        "text": "Can you show me, please?"
+      }
+    }
+  },
+
+  "icons": {
+    "Water": "💧",
+    "Juice": "🧃",
+    "Apple juice": "🧃",
+    "Milk": "🥛",
+    "Toast": "🍞",
+    "Yogurt": "🥣",
+    "Fruit": "🍎",
+    "Sandwich": "🥪",
+    "Pasta": "🍝",
+    "Chicken": "🍗",
+    "Drawing": "🎨",
+    "Music": "🎵",
+    "Minecraft": "🎮",
+    "Park": "🏞️",
+    "Walk": "🚶",
+    "Toilet": "🚽",
+    "Help": "🆘"
+  },
+
+  "llmGuidance": {
+    "prioritiseLocationAvailability": true,
+    "prioritiseLikedItems": true,
+    "avoidDislikedItems": true,
+    "ifNoAvailabilityProvidedUseSafeDefaults": true,
+    "safeDefaults": {
+      "drinks": ["Water", "Juice", "Milk"],
+      "foods": ["Fruit", "Sandwich", "Yogurt"],
+      "activities": ["Drawing", "Music", "Walk"]
+    }
+  },
+
+  "setup": {
+    "completedSections": [
+      "user",
+      "style",
+      "preferences.likes",
+      "preferences.dislikes",
+      "locations.HOME",
+      "locations.SCHOOL"
+    ],
+    "notesForCaregiver": "Update the location availability lists for best results."
+  },
+
+  "likedFoods": ["Yogurt", "Toast", "Pasta", "Chicken"],
+  "dislikedFoods": ["Spicy food"],
+  "likedDrinks": ["Water", "Apple juice", "Milk"],
+  "dislikedDrinks": ["Fizzy drinks"],
+  "yesPrefix": "Yes, please. I would like ",
+  "noText": "No, thank you.",
+  "repeatText": "Can you say that again, please?"
+}
