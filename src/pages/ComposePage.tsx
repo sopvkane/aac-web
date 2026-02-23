@@ -1,344 +1,593 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { suggestionsApi } from "../api/suggestions";
-import type { LocationCategory, SuggestionItem, TimeBucket } from "../types/suggestions";
-import { getLocalTimeBucket } from "../util/timeBucket";
+import { ChevronDown, Mic, Square, Sparkles } from "lucide-react";
+
 import { Button } from "../components/ui/button";
-import { SelectContent, SelectItem, SelectRoot, SelectTrigger } from "../components/ui/select";
-import { seedDemoPhrasesIfEmpty } from "../demo/seedPhrases";
-import {
-  HandHelping,
-  Droplet,
-  Smile,
-  Frown,
-  HeartPulse,
-  Home,
-  Utensils,
-  Gamepad2,
-  MessageCircle,
-  ArrowRightCircle,
-  Sparkles,
-} from "lucide-react";
+import { speakText } from "../api/tts";
+import { useSpeechToText } from "../hooks/useSpeechToText";
+import { getDialogueReplies, type DialogueResponse } from "../api/dialogue";
 
-const LOCATION_OPTIONS: LocationCategory[] = ["HOME", "SCHOOL", "WORK", "OTHER"];
+type LocationKey = "HOME" | "SCHOOL" | "OUT";
 
-// Maps a phrase category to a colour + icon (AAC-friendly, high contrast)
-function categoryStyle(category: string) {
-  const c = (category || "").toLowerCase();
-
-  if (c.includes("need")) {
-    return {
-      chip: "bg-emerald-100 text-emerald-900 border-emerald-200",
-      card: "border-emerald-200 hover:bg-emerald-50",
-      Icon: Droplet,
-      label: "Needs",
-    };
+function getStoredName(): string | null {
+  try {
+    return localStorage.getItem("aac_name");
+  } catch {
+    return null;
   }
-  if (c.includes("help")) {
-    return {
-      chip: "bg-indigo-100 text-indigo-900 border-indigo-200",
-      card: "border-indigo-200 hover:bg-indigo-50",
-      Icon: HandHelping,
-      label: "Help",
-    };
-  }
-  if (c.includes("health")) {
-    return {
-      chip: "bg-rose-100 text-rose-900 border-rose-200",
-      card: "border-rose-200 hover:bg-rose-50",
-      Icon: HeartPulse,
-      label: "Health",
-    };
-  }
-  if (c.includes("answer") || c.includes("yes") || c.includes("no")) {
-    return {
-      chip: "bg-amber-100 text-amber-900 border-amber-200",
-      card: "border-amber-200 hover:bg-amber-50",
-      Icon: ArrowRightCircle,
-      label: "Answers",
-    };
-  }
-  if (c.includes("social")) {
-    return {
-      chip: "bg-sky-100 text-sky-900 border-sky-200",
-      card: "border-sky-200 hover:bg-sky-50",
-      Icon: MessageCircle,
-      label: "Social",
-    };
-  }
-  if (c.includes("food") || c.includes("hungry")) {
-    return {
-      chip: "bg-lime-100 text-lime-900 border-lime-200",
-      card: "border-lime-200 hover:bg-lime-50",
-      Icon: Utensils,
-      label: "Food",
-    };
-  }
-  if (c.includes("activity") || c.includes("play")) {
-    return {
-      chip: "bg-violet-100 text-violet-900 border-violet-200",
-      card: "border-violet-200 hover:bg-violet-50",
-      Icon: Gamepad2,
-      label: "Activity",
-    };
-  }
-  if (c.includes("travel") || c.includes("home")) {
-    return {
-      chip: "bg-cyan-100 text-cyan-900 border-cyan-200",
-      card: "border-cyan-200 hover:bg-cyan-50",
-      Icon: Home,
-      label: "Travel",
-    };
-  }
-
-  return {
-    chip: "bg-zinc-100 text-zinc-900 border-zinc-200",
-    card: "border-zinc-200 hover:bg-zinc-50",
-    Icon: Sparkles,
-    label: "General",
-  };
 }
 
-export function ComposePage() {
-  const [text, setText] = useState("");
-  const [locationCategory, setLocationCategory] = useState<LocationCategory>("HOME");
-  const [timeBucket, setTimeBucket] = useState<TimeBucket>(() => getLocalTimeBucket());
+function setStoredName(name: string) {
+  try {
+    localStorage.setItem("aac_name", name);
+  } catch {
+    // ignore
+  }
+}
 
-  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
-  const [loading, setLoading] = useState(false);
+function getStoredLocation(): LocationKey {
+  try {
+    const v = localStorage.getItem("aac_location");
+    if (v === "HOME" || v === "SCHOOL" || v === "OUT") return v;
+  } catch {
+    // ignore
+  }
+  return "HOME";
+}
+
+function setStoredLocation(loc: LocationKey) {
+  try {
+    localStorage.setItem("aac_location", loc);
+  } catch {
+    // ignore
+  }
+}
+
+function phraseChoice(item: string) {
+  const trimmed = item.trim();
+  if (!trimmed) return "Please.";
+  // Keep it short and AAC-friendly
+  return `${trimmed}, please.`;
+}
+
+function phraseInstead(item: string) {
+  const trimmed = item.trim();
+  if (!trimmed) return "Could I have something else, please?";
+  return `Could I have ${trimmed.toLowerCase()} instead, please?`;
+}
+
+const ICON_MAP: Record<string, string> = {
+  water: "💧",
+  juice: "🧃",
+  "apple juice": "🧃",
+  "orange juice": "🧃",
+  "grape juice": "🧃",
+  milk: "🥛",
+  tea: "☕",
+  coffee: "☕",
+
+  apple: "🍎",
+  banana: "🍌",
+  bread: "🍞",
+  toast: "🍞",
+  yogurt: "🥣",
+  fruit: "🍎",
+  sandwich: "🥪",
+  pasta: "🍝",
+  chicken: "🍗",
+
+  toilet: "🚽",
+  bathroom: "🚽",
+  help: "🆘",
+  "show me": "👀",
+  again: "🔁",
+
+  drawing: "🎨",
+  draw: "🎨",
+  music: "🎵",
+  game: "🎮",
+  minecraft: "🎮",
+  park: "🏞️",
+  walk: "🚶"
+};
+
+function iconForText(text: string) {
+  const t = (text || "").trim().toLowerCase();
+  if (!t) return "";
+
+  if (ICON_MAP[t]) return ICON_MAP[t];
+
+  // light heuristics for common phrases
+  if (t.includes("juice")) return "🧃";
+  if (t.includes("water")) return "💧";
+  if (t.includes("milk")) return "🥛";
+  if (t.includes("toilet") || t.includes("bathroom")) return "🚽";
+  if (t.includes("help")) return "🆘";
+  if (t.includes("draw")) return "🎨";
+  if (t.includes("game")) return "🎮";
+
+  return "";
+}
+
+// If label starts with an emoji (e.g., "🧃 Juice"), split it.
+// Otherwise fallback to icon map based on label text.
+function splitIconLabel(label: string) {
+  const raw = (label || "").trim();
+  if (!raw) return { icon: "", text: "" };
+
+  // Emoji prefix: "🧃 Juice"
+  const m = raw.match(/^\s*(\p{Extended_Pictographic}(?:\uFE0F)?)\s+(.*)$/u);
+  if (m) {
+    return { icon: m[1], text: m[2].trim() };
+  }
+
+  return { icon: iconForText(raw), text: raw };
+}
+
+export function ConversationPage() {
+  const stt = useSpeechToText();
+
+  const [name, setName] = useState(() => getStoredName() ?? "");
+  const [hasName, setHasName] = useState(() => Boolean(getStoredName()));
+  const [nameInput, setNameInput] = useState("");
+
+  const [location, setLocation] = useState<LocationKey>(() => getStoredLocation());
+
+  const [questionText, setQuestionText] = useState("");
+  const [showMore, setShowMore] = useState(false);
+
+  const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Live region message for SR users
-  const [statusMsg, setStatusMsg] = useState<string>("");
+  const [ai, setAi] = useState<DialogueResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [statusMsg, setStatusMsg] = useState("");
+
+  const nameRef = useRef<HTMLInputElement | null>(null);
   const debounceRef = useRef<number | null>(null);
+  const lastRequestedQuestionRef = useRef<string>("");
 
-  const prefix = useMemo(() => text.trim(), [text]);
-
-  // ✅ Seed demo phrases once on mount (fixes your unused import)
   useEffect(() => {
-    seedDemoPhrasesIfEmpty().catch(() => {
-      // fail silently so UI still loads if API is unavailable
-    });
-  }, []);
+    if (!hasName) setTimeout(() => nameRef.current?.focus(), 50);
+  }, [hasName]);
 
-  // Update time bucket every minute
   useEffect(() => {
-    const id = window.setInterval(() => setTimeBucket(getLocalTimeBucket()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
+    if (stt.finalText) setQuestionText(stt.finalText);
+  }, [stt.finalText]);
+
+  useEffect(() => {
+    setStoredLocation(location);
+  }, [location]);
+
+  const prompt = useMemo(() => {
+    if (questionText.trim()) return questionText.trim();
+    return `${name}, would you like a drink?`;
+  }, [name, questionText]);
 
   const announce = (msg: string) => setStatusMsg(msg);
 
-  const loadSuggestions = async (p: string, t: TimeBucket, loc: LocationCategory) => {
+  const speak = async (text: string) => {
     setError(null);
-    setLoading(true);
-    announce("Loading suggestions…");
+    setSpeaking(true);
+    announce("Speaking");
 
     try {
-      const res = await suggestionsApi.suggest({ prefix: p, timeBucket: t, locationCategory: loc });
-      setSuggestions(res.suggestions);
-
-      if (res.suggestions.length === 0) announce("No suggestions available.");
-      else if (res.suggestions.length === 1) announce("1 suggestion available.");
-      else announce(`${res.suggestions.length} suggestions available.`);
-    } catch (err) {
-      setSuggestions([]);
-      const msg = err instanceof Error ? err.message : "Failed to load suggestions";
-      setError(msg);
-      announce("Error loading suggestions.");
+      await speakText(text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to speak");
+      announce("Error speaking");
     } finally {
-      setLoading(false);
+      setSpeaking(false);
+      setTimeout(() => announce(""), 500);
     }
   };
 
-  // Debounced suggestions refresh when prefix/context changes
-  useEffect(() => {
-    if (prefix.length < 2) {
-      setSuggestions([]);
-      setError(null);
-      setLoading(false);
-      announce(prefix.length === 0 ? "Start typing to see suggestions." : "Type one more character for suggestions.");
-      return;
+  const completeOnboarding = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) return;
+
+    setStoredName(trimmed);
+    setName(trimmed);
+    setHasName(true);
+    setNameInput("");
+
+    await speak(`Hi ${trimmed}.`);
+  };
+
+  const resetName = () => {
+    try {
+      localStorage.removeItem("aac_name");
+    } catch {
+      // ignore
     }
+
+    setHasName(false);
+    setName("");
+    setShowMore(false);
+    setQuestionText("");
+    setAi(null);
+    setAiError(null);
+    lastRequestedQuestionRef.current = "";
+  };
+
+  const clearHeardQuestion = () => {
+    setQuestionText("");
+    setAi(null);
+    setAiError(null);
+    lastRequestedQuestionRef.current = "";
+    setShowMore(false);
+  };
+
+  // Generate AI replies only when there is a real question (not the default prompt)
+  useEffect(() => {
+    if (!hasName) return;
+
+    const q = questionText.trim();
+    if (!q) return;
+    if (stt.listening) return;
+
+    if (q === lastRequestedQuestionRef.current) return;
 
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
 
     debounceRef.current = window.setTimeout(() => {
-      void loadSuggestions(prefix, timeBucket, locationCategory);
+      lastRequestedQuestionRef.current = q;
+      setAiLoading(true);
+      setAiError(null);
+
+      getDialogueReplies({
+        userName: name,
+        questionText: q,
+        context: { location }
+      })
+        .then((res) => setAi(res))
+        .catch((e) =>
+          setAiError(e instanceof Error ? e.message : "Failed to get AI replies")
+        )
+        .finally(() => setAiLoading(false));
     }, 250);
 
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [prefix, timeBucket, locationCategory]);
+  }, [questionText, name, hasName, stt.listening, location]);
 
-  const applySuggestion = (s: SuggestionItem, idx?: number) => {
-    setText(s.phrase.text);
-    announce(idx != null ? `Suggestion ${idx + 1} applied.` : "Suggestion applied.");
-    textareaRef.current?.focus();
-  };
+  // Onboarding screen
+  if (!hasName) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-10">
+        <div className="rounded-[28px] border border-indigo-100 bg-white p-8 shadow-sm">
+          <h1 className="text-4xl font-black tracking-tight">Welcome</h1>
+          <p className="mt-3 text-lg text-slate-600">
+            What should I call you?
+          </p>
 
-  // Keyboard shortcuts: Alt+1/2/3 apply suggestion
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!e.altKey) return;
-      if (e.key === "1" || e.key === "2" || e.key === "3") {
-        const idx = Number(e.key) - 1;
-        const s = suggestions[idx];
-        if (s) {
-          e.preventDefault();
-          applySuggestion(s, idx);
-        }
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [suggestions]);
-
-  return (
-    <section aria-labelledby="compose-title" className="grid gap-8">
-      <header className="grid gap-2">
-        <h1 id="compose-title" className="text-4xl sm:text-5xl font-extrabold tracking-tight text-zinc-900">
-          Compose
-        </h1>
-        <p className="text-zinc-700 text-lg sm:text-xl">
-          Type a message, then tap a suggestion. <span className="font-semibold">(Alt+1/2/3)</span> selects top suggestions.
-        </p>
-      </header>
-
-      {/* Screen-reader status region */}
-      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {statusMsg}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Compose panel */}
-        <div className="rounded-[28px] border-2 border-indigo-100 bg-white/80 backdrop-blur p-6 shadow-[var(--shadow)]">
-          <div className="grid gap-3">
-            <label htmlFor="compose-text" className="text-xl font-semibold text-zinc-900">
-              Message
+          <div className="mt-6">
+            <label className="text-sm font-semibold text-slate-700">
+              Your name
             </label>
-
-            <textarea
-              id="compose-text"
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={4}
-              className="min-h-30 w-full rounded-[22px] border-2 border-indigo-200 bg-white p-4 text-xl placeholder:text-zinc-400"
-              placeholder="Start typing…"
-              aria-controls="suggestions-list"
-              aria-describedby="compose-help compose-status"
+            <input
+              ref={nameRef}
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              className="mt-2 w-full rounded-[18px] border-2 border-indigo-200 bg-white px-4 py-3 text-xl"
+              placeholder="e.g. Sophie"
+              autoComplete="name"
             />
-
-            <div className="grid gap-1">
-              <p id="compose-help" className="text-base text-zinc-700">
-                Suggestions update as you type. Use Tab to reach them, or Alt+1/2/3.
-              </p>
-
-              <p id="compose-status" className="text-base text-zinc-700" aria-live="polite">
-                {loading ? "Loading suggestions…" : prefix.length < 2 ? "Type at least 2 characters." : null}
-              </p>
-            </div>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <span className="text-xl font-semibold text-zinc-900" id="location-label">
-                Location
-              </span>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button
+              onClick={() => void completeOnboarding()}
+              disabled={speaking || !nameInput.trim()}
+              className="rounded-[18px] px-5 py-6 text-lg"
+            >
+              {speaking ? "Speaking…" : "Continue"}
+            </Button>
 
-              <SelectRoot value={locationCategory} onValueChange={(v) => setLocationCategory(v as LocationCategory)}>
-                <SelectTrigger
-                  aria-labelledby="location-label"
-                  className="rounded-[18px] border-2 border-indigo-200 bg-indigo-50 px-4"
-                >
-                  {locationCategory}
-                </SelectTrigger>
-                <SelectContent className="rounded-[18px]">
-                  {LOCATION_OPTIONS.map((opt) => (
-                    <SelectItem key={opt} value={opt} className="rounded-xl py-3 text-lg">
-                      {opt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </SelectRoot>
-            </div>
-
-            <div className="grid gap-2">
-              <span className="text-xl font-semibold text-zinc-900">Time bucket</span>
-              <div className="min-h-[44px] rounded-[18px] border-2 border-indigo-100 bg-indigo-50 px-4 py-3 text-lg flex items-center">
-                {timeBucket}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Suggestions panel */}
-        <section
-          aria-labelledby="suggestions-title"
-          className="rounded-[28px] border-2 border-indigo-100 bg-white/80 backdrop-blur p-6 shadow-[var(--shadow)]"
-        >
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 id="suggestions-title" className="text-2xl font-extrabold text-zinc-900">
-              Suggestions
-            </h2>
-            <span className="text-base text-zinc-700" aria-hidden>
-              {suggestions.length > 0 ? `${suggestions.length} shown` : ""}
-            </span>
+            <Button
+              variant="secondary"
+              onClick={() => void speak("Hello. This is your AAC device.")}
+              disabled={speaking}
+              className="rounded-[18px] px-5 py-6 text-lg"
+            >
+              Test voice
+            </Button>
           </div>
 
           {error && (
-            <div role="alert" className="mt-4 rounded-[18px] border-2 border-red-300 bg-red-50 p-4 text-red-900 text-lg">
+            <div className="mt-6 rounded-[18px] border border-rose-200 bg-rose-50 p-4 text-rose-800">
               {error}
             </div>
           )}
 
-          <ul id="suggestions-list" className="mt-4 grid gap-3" aria-label="Suggested phrases">
-            {suggestions.length === 0 ? (
-              <li className="text-lg text-zinc-700">
-                {prefix.length < 2 ? "Start typing to see suggestions." : loading ? "Loading…" : "No suggestions."}
-              </li>
-            ) : (
-              suggestions.map((s, idx) => {
-                const style = categoryStyle(s.phrase.category);
-                const Icon = style.Icon;
+          <p className="mt-6 text-sm text-slate-500">
+            Saved on this device for demo purposes.
+          </p>
 
-                return (
-                  <li key={`${s.phrase.id}-${idx}`}>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={`w-full justify-start text-left min-h-14 px-5 py-4 rounded-[22px] border-2 ${style.card}`}
-                      onClick={() => applySuggestion(s, idx)}
-                      aria-label={`Use suggestion ${idx + 1}: ${s.phrase.text}`}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="mt-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-white border-2 border-zinc-200">
-                          <Icon aria-hidden className="h-6 w-6" />
-                        </div>
-
-                        <div className="grid gap-2">
-                          <span className="text-xl font-extrabold">{s.phrase.text}</span>
-
-                          <span
-                            className={`inline-flex w-fit items-center rounded-full border-2 px-3 py-1 text-sm font-bold ${style.chip}`}
-                          >
-                            {style.label}
-                          </span>
-
-                          <span className="sr-only">Score {s.score.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </Button>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        </section>
+          {statusMsg && (
+            <div className="mt-3 text-sm text-slate-500" aria-live="polite">
+              {statusMsg}
+            </div>
+          )}
+        </div>
       </div>
-    </section>
+    );
+  }
+
+  const replies = ai?.topReplies?.slice(0, 3) ?? [];
+  const optionGroups = ai?.optionGroups ?? [];
+
+  const locationLabel =
+    location === "HOME" ? "Home" : location === "SCHOOL" ? "School" : "Out";
+
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 py-10">
+      <div className="rounded-[28px] border border-indigo-100 bg-white p-8 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-6xl font-black tracking-tight">Conversation</h1>
+            <p className="mt-3 text-lg text-slate-600">
+              Tap Listen to capture a question, then choose a reply to speak.
+            </p>
+          </div>
+
+          <div className="rounded-[22px] border border-indigo-100 bg-indigo-50/50 p-2">
+            <div className="px-2 pb-1 text-xs font-semibold text-indigo-700">
+              Location
+            </div>
+            <div role="group" aria-label="Location" className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setLocation("HOME")}
+                className={`rounded-[16px] px-4 py-3 text-sm font-semibold transition ${
+                  location === "HOME"
+                    ? "bg-white shadow-sm ring-2 ring-indigo-300"
+                    : "bg-transparent hover:bg-white/60"
+                }`}
+                aria-pressed={location === "HOME"}
+              >
+                Home
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocation("SCHOOL")}
+                className={`rounded-[16px] px-4 py-3 text-sm font-semibold transition ${
+                  location === "SCHOOL"
+                    ? "bg-white shadow-sm ring-2 ring-indigo-300"
+                    : "bg-transparent hover:bg-white/60"
+                }`}
+                aria-pressed={location === "SCHOOL"}
+              >
+                School
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocation("OUT")}
+                className={`rounded-[16px] px-4 py-3 text-sm font-semibold transition ${
+                  location === "OUT"
+                    ? "bg-white shadow-sm ring-2 ring-indigo-300"
+                    : "bg-transparent hover:bg-white/60"
+                }`}
+                aria-pressed={location === "OUT"}
+              >
+                Out
+              </button>
+            </div>
+            <div className="px-2 pt-1 text-xs text-slate-600">
+              Current: <span className="font-semibold">{locationLabel}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 rounded-[22px] border border-indigo-100 bg-indigo-50/40 p-6">
+          <div className="text-sm font-semibold text-indigo-700">Prompt</div>
+          <div className="mt-2 text-4xl font-black tracking-tight">{prompt}</div>
+
+          {stt.listening && stt.interimText && (
+            <div className="mt-4 rounded-[18px] bg-white/70 px-4 py-3 text-slate-700">
+              <span className="font-semibold">Hearing:</span> {stt.interimText}
+            </div>
+          )}
+
+          {stt.error && (
+            <div className="mt-4 rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800">
+              {stt.error}
+            </div>
+          )}
+
+          <div className="mt-4 text-sm text-slate-600">
+            {aiLoading
+              ? "Generating replies…"
+              : ai?.intent
+              ? `Intent: ${ai.intent}`
+              : "Waiting for a question…"}
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => void speak(prompt)}
+              disabled={speaking}
+              className="rounded-[18px] px-5 py-6 text-lg"
+            >
+              <Sparkles className="mr-2 h-5 w-5" />
+              {speaking ? "Speaking…" : "Speak prompt"}
+            </Button>
+
+            <Button
+              onClick={() => void (stt.listening ? stt.stop() : stt.start())}
+              disabled={speaking}
+              className="rounded-[18px] px-5 py-6 text-lg"
+            >
+              {stt.listening ? (
+                <Square className="mr-2 h-5 w-5" />
+              ) : (
+                <Mic className="mr-2 h-5 w-5" />
+              )}
+              {stt.listening ? "Stop listening" : "Listen"}
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={clearHeardQuestion}
+              disabled={speaking}
+              className="rounded-[18px] px-5 py-6 text-lg"
+            >
+              Clear question
+            </Button>
+          </div>
+
+          {(error || aiError) && (
+            <div className="mt-5 rounded-[18px] border border-rose-200 bg-rose-50 p-4 text-rose-800">
+              {error ?? aiError}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {replies.length === 3 ? (
+            replies.map((r) => {
+              const { icon, text } = splitIconLabel(r.label || "");
+              return (
+                <button
+                  key={`${r.label}-${r.text}`}
+                  type="button"
+                  onClick={() => void speak(r.text)}
+                  disabled={speaking}
+                  aria-label={`Speak: ${r.text}`}
+                  className="group rounded-[24px] border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:shadow-md disabled:opacity-50"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-500">
+                      {text || "Option"}
+                    </div>
+                    {icon && (
+                      <div
+                        className="text-4xl leading-none"
+                        aria-hidden="true"
+                        title={text}
+                      >
+                        {icon}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-2 text-2xl font-extrabold leading-snug">
+                    {r.text}
+                  </div>
+                </button>
+              );
+            })
+          ) : (
+            <div className="col-span-full rounded-[22px] border border-slate-200 bg-slate-50 p-6 text-slate-700">
+              Ask a question (or click Listen) to generate replies.
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => setShowMore((v) => !v)}
+            disabled={speaking || optionGroups.length === 0}
+            className="rounded-[18px] px-5 py-6 text-lg"
+          >
+            <ChevronDown className="mr-2 h-5 w-5" />
+            {showMore
+              ? "Hide options"
+              : optionGroups.length
+              ? "More options"
+              : "No options"}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={resetName}
+            disabled={speaking}
+            className="rounded-[18px] px-5 py-6 text-lg"
+          >
+            Change name
+          </Button>
+        </div>
+
+        {showMore && optionGroups.length > 0 && (
+          <div className="mt-8 space-y-6">
+            {optionGroups.map((g) => (
+              <div
+                key={`${g.id}-${g.title}`}
+                className="rounded-[22px] border border-slate-200 bg-slate-50 p-6"
+              >
+                <div className="text-xl font-black">{g.title}</div>
+                <p className="mt-1 text-sm text-slate-600">
+                  Tap an item to speak it.
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {g.items.slice(0, 8).map((item) => {
+                    const icon = iconForText(item);
+                    const label = item
+                      ? item[0].toUpperCase() + item.slice(1)
+                      : "Item";
+
+                    return (
+                      <Button
+                        key={item}
+                        onClick={() => void speak(phraseChoice(label))}
+                        disabled={speaking}
+                        className="rounded-[18px]"
+                      >
+                        <span className="mr-2" aria-hidden="true">
+                          {icon || "•"}
+                        </span>
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                {g.items[0] && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        const first = g.items[0];
+                        const label =
+                          first[0].toUpperCase() + first.slice(1);
+                        return void speak(phraseChoice(label));
+                      }}
+                      disabled={speaking}
+                      className="rounded-[18px]"
+                    >
+                      Choose — {g.items[0]}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        const first = g.items[0];
+                        const label =
+                          first[0].toUpperCase() + first.slice(1);
+                        return void speak(phraseInstead(label));
+                      }}
+                      disabled={speaking}
+                      className="rounded-[18px]"
+                    >
+                      Instead — {g.items[0]}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {statusMsg && (
+          <div className="mt-6 text-sm text-slate-500" aria-live="polite">
+            {statusMsg}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

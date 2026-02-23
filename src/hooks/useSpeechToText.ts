@@ -4,6 +4,7 @@ import { getSpeechToken } from "../api/speechToken";
 
 export function useSpeechToText() {
   const recognizerRef = useRef<SpeechSDK.SpeechRecognizer | null>(null);
+  const stoppingRef = useRef(false);
 
   const [listening, setListening] = useState(false);
   const [interimText, setInterimText] = useState("");
@@ -11,17 +12,29 @@ export function useSpeechToText() {
   const [error, setError] = useState<string | null>(null);
 
   const stop = async () => {
-    const r = recognizerRef.current;
-    if (!r) {
+    if (stoppingRef.current) return;
+    stoppingRef.current = true;
+
+    try {
+      const r = recognizerRef.current;
+      if (!r) {
+        setListening(false);
+        return;
+      }
+
+      await new Promise<void>((resolve) => {
+        r.stopContinuousRecognitionAsync(
+          () => resolve(),
+          () => resolve()
+        );
+      });
+
+      r.close();
+      recognizerRef.current = null;
       setListening(false);
-      return;
+    } finally {
+      stoppingRef.current = false;
     }
-    await new Promise<void>((resolve) => {
-      r.stopContinuousRecognitionAsync(() => resolve(), () => resolve());
-    });
-    r.close();
-    recognizerRef.current = null;
-    setListening(false);
   };
 
   const start = async () => {
@@ -32,14 +45,21 @@ export function useSpeechToText() {
     try {
       const { token, region } = await getSpeechToken();
 
-      const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(token, region);
+      const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(
+        token,
+        region
+      );
       speechConfig.speechRecognitionLanguage = "en-GB";
 
       const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
       const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+
       recognizerRef.current = recognizer;
 
-      recognizer.recognizing = (_s, e) => setInterimText(e.result?.text ?? "");
+      recognizer.recognizing = (_s, e) => {
+        setInterimText(e.result?.text ?? "");
+      };
+
       recognizer.recognized = (_s, e) => {
         if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
           const t = (e.result.text ?? "").trim();
@@ -52,12 +72,17 @@ export function useSpeechToText() {
         void stop();
       };
 
-      recognizer.sessionStopped = () => void stop();
+      recognizer.sessionStopped = () => {
+        void stop();
+      };
 
       setListening(true);
 
       await new Promise<void>((resolve, reject) => {
-        recognizer.startContinuousRecognitionAsync(() => resolve(), (err) => reject(err));
+        recognizer.startContinuousRecognitionAsync(
+          () => resolve(),
+          (err) => reject(err)
+        );
       });
     } catch (e) {
       setListening(false);
@@ -66,7 +91,9 @@ export function useSpeechToText() {
   };
 
   useEffect(() => {
-    return () => void stop();
+    return () => {
+      void stop();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

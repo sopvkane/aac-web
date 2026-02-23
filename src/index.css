@@ -1,32 +1,28 @@
 @import "tailwindcss";
 
-/* Accessibility defaults */
-:focus-visible {
-  outline: 3px solid currentColor;
-  outline-offset: 3px;
-}
-
-/* Ensure minimum touch target sizing */
-button, input, select, textarea {
-  min-height: 44px;
-}
-
-/* Reduce motion respect */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    scroll-behavior: auto !important;
-    transition: none !important;
-    animation: none !important;
-  }
-}
+/* ---------- Baseline + theme tokens ---------- */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  color-scheme: light;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  --aac-bg: #f4f7ff;
+  --aac-surface: #ffffff;
+  --aac-surface-2: #eef2ff;
+  --aac-border: #c7d2fe;
+
+  --aac-text: #0b1220;
+  --aac-muted: #334155;
+
+  --aac-brand: #4f46e5; /* indigo */
+  --aac-brand-2: #22c55e; /* green */
+  --aac-danger: #ef4444;
+  --aac-warn: #f59e0b;
+
+  --aac-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 18px;
+  line-height: 1.45;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -34,140 +30,112 @@ button, input, select, textarea {
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
+/* ---------- Page background ---------- */
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
   min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #d6f0ee;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
-/* AAC-friendly defaults */
-:root {
-  --aac-bg: #ffffff;
-  --aac-surface: #f6f7f9;
-  --aac-border: #d0d5dd;
-  --aac-text: #0b1220;
-  --aac-muted: #334155;
-}
-
-body {
-  background: var(--aac-bg);
+  background: radial-gradient(
+    1200px 600px at 20% 0%,
+    #e0e7ff 0%,
+    var(--aac-bg) 55%,
+    #ecfeff 100%
+  );
   color: var(--aac-text);
-  font-size: 18px; /* bigger baseline */
-  line-height: 1.45;
 }
 
+/* Make text readable by default */
 p {
   max-width: 70ch;
 }
 
-a, button, input, select, textarea {
+/* ---------- Links ---------- */
+a {
+  color: var(--aac-brand);
+  text-decoration: none;
+  font-weight: 600;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Touch targets (AAC-friendly) ---------- */
+button,
+input,
+select,
+textarea {
+  min-height: 44px;
   font-size: 18px;
 }
 
-/* Make default border + rounding feel “touch-first” */
-textarea, input {
+/* Inputs should feel “touch-first” */
+input,
+textarea,
+select {
   border-width: 2px;
   border-color: var(--aac-border);
-  border-radius: 14px;
-}
-/* --- AAC Youth Theme (high contrast, friendly) --- */
-:root {
-  --bg: #f4f7ff;          /* soft blue background */
-  --surface: #ffffff;     /* cards */
-  --surface-2: #eef2ff;   /* subtle accent surface */
-  --border: #c7d2fe;      /* indigo-200ish */
-  --text: #0b1220;
-  --muted: #334155;
-
-  --brand: #4f46e5;       /* indigo */
-  --brand-2: #22c55e;     /* green */
-  --warn: #f59e0b;        /* amber */
-  --danger: #ef4444;      /* red */
-
-  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
 }
 
-body {
-  background: radial-gradient(1200px 600px at 20% 0%, #e0e7ff 0%, var(--bg) 55%, #ecfeff 100%);
-  color: var(--text);
-  font-size: 18px;
-  line-height: 1.45;
+/* Disabled affordance */
+button:disabled,
+[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-a, button, input, select, textarea {
-  font-size: 18px;
-}
-
-/* Make focus super obvious for low vision */
+/* ---------- Focus (very visible) ---------- */
 :focus-visible {
-  outline: 4px solid var(--brand);
+  outline: 4px solid var(--aac-brand);
   outline-offset: 4px;
 }
 
-/* Friendly rounded look */
-textarea, input {
-  border-width: 2px;
-  border-color: var(--border);
-  border-radius: 18px;
+/* ---------- Selection highlight ---------- */
+::selection {
+  background: rgba(79, 70, 229, 0.22);
 }
 
-/* Optional: slightly thicker border on all interactive controls */
-button, select {
-  border-radius: 18px;
-}
-
-/* Reduce motion respect */
+/* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* ---------- High contrast preference ---------- */
+@media (prefers-contrast: more) {
+  :root {
+    --aac-border: #1e293b;
+  }
+
+  :focus-visible {
+    outline-width: 5px;
+  }
+
+  input,
+  textarea,
+  select {
+    border-color: #1e293b;
+  }
+}
+
+/* ---------- Optional: nicer scrollbars (safe) ---------- */
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(79, 70, 229, 0.25);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(79, 70, 229, 0.35);
   }
 }
