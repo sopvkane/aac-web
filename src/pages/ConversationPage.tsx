@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../components/ui/button";
 import { speakText } from "../api/tts";
-import { Droplet, Coffee, Milk, Apple, Citrus, GlassWater, ChevronDown } from "lucide-react";
+import {
+  Droplet,
+  Coffee,
+  Milk,
+  Apple,
+  Citrus,
+  GlassWater,
+  ChevronDown,
+  Mic,
+  Square,
+} from "lucide-react";
+import { useSpeechToText } from "../hooks/useSpeechToText";
 
 type Drink = {
   key: "water" | "orange_juice" | "apple_juice" | "milk" | "tea";
@@ -42,10 +53,63 @@ function phraseInstead(item: string) {
   return `Could I have ${item.toLowerCase()} instead?`;
 }
 
+/**
+ * Minimal “reply engine” (deterministic):
+ * - Detect if question is likely about drinks
+ * - Extract primary drink mentioned (if any)
+ * - Pick an alternative drink (contextual / different from primary)
+ */
+function normalise(text: string) {
+  return (text || "").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function detectMentionedDrink(question: string): Drink | null {
+  const q = normalise(question);
+
+  // simple keyword matching; can be upgraded later
+  const matches: { drink: Drink; hits: number }[] = DRINKS.map((d) => {
+    const label = d.label.toLowerCase();
+    const keyHits =
+      (d.key === "orange_juice" && (q.includes("orange") || q.includes("oj") || q.includes("orange juice"))) ||
+      (d.key === "apple_juice" && (q.includes("apple") || q.includes("apple juice"))) ||
+      (d.key === "water" && q.includes("water")) ||
+      (d.key === "milk" && q.includes("milk")) ||
+      (d.key === "tea" && q.includes("tea"));
+
+    // count rough hits
+    const hits = keyHits ? 1 : 0;
+    return { drink: d, hits };
+  }).filter((m) => m.hits > 0);
+
+  if (matches.length === 0) return null;
+  // if multiple, pick first match (could rank later)
+  return matches[0].drink;
+}
+
+function pickAlternativeDrink(primary: Drink | null, fallback: Drink): Drink {
+  // prefer something different from primary; otherwise choose a “safe” alt
+  const safeOrder: Drink[] = [
+    DRINKS.find((d) => d.key === "orange_juice")!,
+    DRINKS.find((d) => d.key === "apple_juice")!,
+    DRINKS.find((d) => d.key === "water")!,
+    DRINKS.find((d) => d.key === "tea")!,
+    DRINKS.find((d) => d.key === "milk")!,
+  ];
+
+  for (const d of safeOrder) {
+    if (!primary || d.key !== primary.key) return d;
+  }
+  return fallback;
+}
+
 export function ConversationPage() {
+  const stt = useSpeechToText();
+
   const [name, setName] = useState<string>(() => getStoredName() ?? "");
   const [hasName, setHasName] = useState<boolean>(() => Boolean(getStoredName()));
   const [nameInput, setNameInput] = useState("");
+
+  const [questionText, setQuestionText] = useState<string>("");
 
   const [showMore, setShowMore] = useState(false);
   const [selectedDrink, setSelectedDrink] = useState<Drink>(DRINKS[0]);
@@ -53,7 +117,6 @@ export function ConversationPage() {
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // SR live region message
   const [statusMsg, setStatusMsg] = useState("");
 
   const nameRef = useRef<HTMLInputElement | null>(null);
@@ -62,7 +125,45 @@ export function ConversationPage() {
     if (!hasName) setTimeout(() => nameRef.current?.focus(), 50);
   }, [hasName]);
 
-  const prompt = useMemo(() => `${name}, would you like a drink?`, [name]);
+  useEffect(() => {
+    if (stt.finalText) setQuestionText(stt.finalText);
+  }, [stt.finalText]);
+
+  const prompt = useMemo(() => {
+    if (questionText.trim()) return questionText.trim();
+    return `${name}, would you like a drink?`;
+  }, [name, questionText]);
+
+  const mentionedDrink = useMemo(() => detectMentionedDrink(prompt), [prompt]);
+  const yesDrink = mentionedDrink ?? selectedDrink;
+  const altDrink = useMemo(() => pickAlternativeDrink(mentionedDrink, selectedDrink), [mentionedDrink, selectedDrink]);
+
+  // Top 3 replies are now dynamic
+  const topReplies = useMemo(() => {
+    return [
+      {
+        id: "yes",
+        title: `Yes (${yesDrink.label.toLowerCase()})`,
+        icon: Droplet,
+        border: "border-emerald-200 hover:bg-emerald-50",
+        text: phraseYes(yesDrink.label),
+      },
+      {
+        id: "no",
+        title: "No thanks",
+        icon: null,
+        border: "border-amber-200 hover:bg-amber-50",
+        text: phraseNo(),
+      },
+      {
+        id: "instead",
+        title: `${altDrink.label} instead`,
+        icon: null,
+        border: "border-indigo-200 hover:bg-indigo-50",
+        text: phraseInstead(altDrink.label),
+      },
+    ];
+  }, [yesDrink.label, altDrink.label]);
 
   const announce = (msg: string) => setStatusMsg(msg);
 
@@ -71,7 +172,6 @@ export function ConversationPage() {
     setSpeaking(true);
     announce("Speaking");
     try {
-      // Keep voice configurable later; default voice is set server-side
       await speakText(text);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to speak");
@@ -103,9 +203,13 @@ export function ConversationPage() {
     setHasName(false);
     setName("");
     setShowMore(false);
+    setQuestionText("");
   };
 
-  // Onboarding screen
+  const clearHeardQuestion = () => {
+    setQuestionText("");
+  };
+
   if (!hasName) {
     return (
       <section className="grid gap-8">
@@ -133,17 +237,29 @@ export function ConversationPage() {
           />
 
           <div className="mt-5 flex flex-wrap gap-3">
-            <Button type="button" onClick={() => void completeOnboarding()} disabled={speaking || !nameInput.trim()}>
+            <Button
+              type="button"
+              onClick={() => void completeOnboarding()}
+              disabled={speaking || !nameInput.trim()}
+            >
               {speaking ? "Speaking…" : "Continue"}
             </Button>
 
-            <Button type="button" variant="outline" onClick={() => void speak("Hello. This is your AAC device.")} disabled={speaking}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void speak("Hello. This is your AAC device.")}
+              disabled={speaking}
+            >
               Test voice
             </Button>
           </div>
 
           {error && (
-            <div role="alert" className="mt-4 rounded-[18px] border-2 border-red-300 bg-red-50 p-4 text-red-900">
+            <div
+              role="alert"
+              className="mt-4 rounded-[18px] border-2 border-red-300 bg-red-50 p-4 text-red-900"
+            >
               {error}
             </div>
           )}
@@ -160,7 +276,6 @@ export function ConversationPage() {
     );
   }
 
-  // Main conversation screen
   return (
     <section className="grid gap-8">
       <header className="grid gap-2">
@@ -168,7 +283,7 @@ export function ConversationPage() {
           Conversation
         </h1>
         <p className="text-zinc-700 text-lg sm:text-xl">
-          Tap a reply to speak it out loud.
+          Tap <span className="font-semibold">Listen</span> to capture a question, then choose a reply to speak.
         </p>
       </header>
 
@@ -176,12 +291,56 @@ export function ConversationPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="grid gap-1">
             <div className="text-sm font-bold text-indigo-700">Prompt</div>
-            <div className="text-2xl sm:text-3xl font-extrabold text-zinc-900">{prompt}</div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-zinc-900">
+              {prompt}
+            </div>
+
+            {stt.listening && stt.interimText && (
+              <p className="mt-2 text-lg text-zinc-700" role="status" aria-live="polite">
+                Hearing: {stt.interimText}
+              </p>
+            )}
+
+            {stt.error && (
+              <div
+                role="alert"
+                className="mt-3 rounded-[18px] border-2 border-red-300 bg-red-50 p-4 text-red-900"
+              >
+                {stt.error}
+              </div>
+            )}
+
+            {/* Helpful hint for demo */}
+            <p className="mt-2 text-sm text-zinc-600">
+              Detected drink: <span className="font-semibold">{mentionedDrink ? mentionedDrink.label : "none"}</span>
+            </p>
           </div>
 
-          <Button type="button" variant="outline" onClick={() => void speak(prompt)} disabled={speaking}>
-            {speaking ? "Speaking…" : "Speak prompt"}
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" variant="outline" onClick={() => void speak(prompt)} disabled={speaking}>
+              {speaking ? "Speaking…" : "Speak prompt"}
+            </Button>
+
+            <Button
+              type="button"
+              variant={stt.listening ? "destructive" : "secondary"}
+              aria-pressed={stt.listening}
+              onClick={() => void (stt.listening ? stt.stop() : stt.start())}
+              disabled={speaking}
+            >
+              {stt.listening ? <Square aria-hidden className="h-5 w-5" /> : <Mic aria-hidden className="h-5 w-5" />}
+              {stt.listening ? "Stop listening" : "Listen"}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={clearHeardQuestion}
+              disabled={speaking || stt.listening || !questionText.trim()}
+            >
+              Clear question
+            </Button>
+          </div>
         </div>
 
         {error && (
@@ -190,51 +349,36 @@ export function ConversationPage() {
           </div>
         )}
 
-        {/* Quick replies (top 3) */}
+        {/* ✅ Top 3 replies now adapt to the question */}
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-14 rounded-[22px] border-2 border-emerald-200 bg-white text-left justify-start px-5 py-4 hover:bg-emerald-50"
-            onClick={() => void speak(phraseYes("water"))}
-            disabled={speaking}
-          >
-            <div className="flex gap-4">
-              <div className="mt-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-white border-2 border-emerald-200">
-                <Droplet aria-hidden className="h-6 w-6" />
-              </div>
-              <div className="grid gap-1">
-                <div className="text-lg font-extrabold">Yes (water)</div>
-                <div className="text-base text-zinc-700">{phraseYes("water")}</div>
-              </div>
-            </div>
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-14 rounded-[22px] border-2 border-amber-200 bg-white text-left justify-start px-5 py-4 hover:bg-amber-50"
-            onClick={() => void speak(phraseNo())}
-            disabled={speaking}
-          >
-            <div className="grid gap-1">
-              <div className="text-lg font-extrabold">No thanks</div>
-              <div className="text-base text-zinc-700">{phraseNo()}</div>
-            </div>
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-14 rounded-[22px] border-2 border-indigo-200 bg-white text-left justify-start px-5 py-4 hover:bg-indigo-50"
-            onClick={() => void speak(phraseInstead("orange juice"))}
-            disabled={speaking}
-          >
-            <div className="grid gap-1">
-              <div className="text-lg font-extrabold">Orange juice instead</div>
-              <div className="text-base text-zinc-700">{phraseInstead("orange juice")}</div>
-            </div>
-          </Button>
+          {topReplies.map((r) => (
+            <Button
+              key={r.id}
+              type="button"
+              variant="outline"
+              className={`min-h-14 rounded-[22px] border-2 bg-white text-left justify-start px-5 py-4 ${r.border}`}
+              onClick={() => void speak(r.text)}
+              disabled={speaking}
+              aria-label={`Speak: ${r.text}`}
+            >
+              {r.icon ? (
+                <div className="flex gap-4">
+                  <div className="mt-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-white border-2 border-emerald-200">
+                    <r.icon aria-hidden className="h-6 w-6" />
+                  </div>
+                  <div className="grid gap-1">
+                    <div className="text-lg font-extrabold">{r.title}</div>
+                    <div className="text-base text-zinc-700">{r.text}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-1">
+                  <div className="text-lg font-extrabold">{r.title}</div>
+                  <div className="text-base text-zinc-700">{r.text}</div>
+                </div>
+              )}
+            </Button>
+          ))}
         </div>
 
         {/* More options */}
@@ -244,7 +388,7 @@ export function ConversationPage() {
             {showMore ? "Hide options" : "More drinks"}
           </Button>
 
-          <Button type="button" variant="outline" onClick={resetName} disabled={speaking}>
+          <Button type="button" variant="outline" onClick={resetName} disabled={speaking || stt.listening}>
             Change name
           </Button>
         </div>
