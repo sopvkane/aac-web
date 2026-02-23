@@ -1,3 +1,24 @@
+@import "tailwindcss";
+
+/* Accessibility defaults */
+:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* Ensure minimum touch target sizing */
+button, input, select, textarea {
+  min-height: 44px;
+}
+
+/* Reduce motion respect */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -64,5 +85,89 @@ button:focus-visible {
   }
   button {
     background-color: #f9f9f9;
+  }
+}
+/* AAC-friendly defaults */
+:root {
+  --aac-bg: #ffffff;
+  --aac-surface: #f6f7f9;
+  --aac-border: #d0d5dd;
+  --aac-text: #0b1220;
+  --aac-muted: #334155;
+}
+
+body {
+  background: var(--aac-bg);
+  color: var(--aac-text);
+  font-size: 18px; /* bigger baseline */
+  line-height: 1.45;
+}
+
+p {
+  max-width: 70ch;
+}
+
+a, button, input, select, textarea {
+  font-size: 18px;
+}
+
+/* Make default border + rounding feel “touch-first” */
+textarea, input {
+  border-width: 2px;
+  border-color: var(--aac-border);
+  border-radius: 14px;
+}
+/* --- AAC Youth Theme (high contrast, friendly) --- */
+:root {
+  --bg: #f4f7ff;          /* soft blue background */
+  --surface: #ffffff;     /* cards */
+  --surface-2: #eef2ff;   /* subtle accent surface */
+  --border: #c7d2fe;      /* indigo-200ish */
+  --text: #0b1220;
+  --muted: #334155;
+
+  --brand: #4f46e5;       /* indigo */
+  --brand-2: #22c55e;     /* green */
+  --warn: #f59e0b;        /* amber */
+  --danger: #ef4444;      /* red */
+
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+body {
+  background: radial-gradient(1200px 600px at 20% 0%, #e0e7ff 0%, var(--bg) 55%, #ecfeff 100%);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+a, button, input, select, textarea {
+  font-size: 18px;
+}
+
+/* Make focus super obvious for low vision */
+:focus-visible {
+  outline: 4px solid var(--brand);
+  outline-offset: 4px;
+}
+
+/* Friendly rounded look */
+textarea, input {
+  border-width: 2px;
+  border-color: var(--border);
+  border-radius: 18px;
+}
+
+/* Optional: slightly thicker border on all interactive controls */
+button, select {
+  border-radius: 18px;
+}
+
+/* Reduce motion respect */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
   }
 }
