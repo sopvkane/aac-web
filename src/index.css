@@ -1,70 +1,65 @@
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&display=swap");
+
 @import "tailwindcss";
 
-/* ---------- Baseline + theme tokens ---------- */
+/* ---------- Global defaults ---------- */
 :root {
-  color-scheme: light;
+  font-family: "Lexend", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 18px;
+  line-height: 1.45;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 
-  --aac-bg: #f4f7ff;
-  --aac-surface: #ffffff;
-  --aac-surface-2: #eef2ff;
-  --aac-border: #c7d2fe;
+  --aac-bg1: #e0f2fe;
+  --aac-bg2: #ede9fe;
+  --aac-bg3: #dcfce7;
+
+  --aac-card: rgba(255, 255, 255, 0.85);
+  --aac-panel: rgba(255, 255, 255, 0.72);
 
   --aac-text: #0b1220;
   --aac-muted: #334155;
 
-  --aac-brand: #4f46e5; /* indigo */
-  --aac-brand-2: #22c55e; /* green */
-  --aac-danger: #ef4444;
-  --aac-warn: #f59e0b;
+  --aac-focus: #4f46e5;
 
-  --aac-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --tone-a-bg: rgba(255, 237, 213, 0.95);
+  --tone-a-br: rgba(251, 146, 60, 0.55);
+  --tone-a-ac: #f97316;
 
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
-    "Apple Color Emoji", "Segoe UI Emoji";
-  font-size: 18px;
-  line-height: 1.45;
+  --tone-b-bg: rgba(219, 234, 254, 0.95);
+  --tone-b-br: rgba(96, 165, 250, 0.55);
+  --tone-b-ac: #3b82f6;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --tone-c-bg: rgba(220, 252, 231, 0.95);
+  --tone-c-br: rgba(34, 197, 94, 0.55);
+  --tone-c-ac: #22c55e;
+
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+  --shadow-soft: 0 10px 22px rgba(15, 23, 42, 0.08);
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-/* ---------- Page background ---------- */
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(
-    1200px 600px at 20% 0%,
-    #e0e7ff 0%,
-    var(--aac-bg) 55%,
-    #ecfeff 100%
-  );
   color: var(--aac-text);
+
+  /* Full screen friendly gradient, no corner blocks */
+  background:
+    radial-gradient(900px 650px at 15% 10%, rgba(59, 130, 246, 0.26) 0%, transparent 60%),
+    radial-gradient(900px 650px at 85% 10%, rgba(236, 72, 153, 0.18) 0%, transparent 62%),
+    radial-gradient(1100px 700px at 50% 90%, rgba(34, 197, 94, 0.20) 0%, transparent 62%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 45%, #ecfeff 100%);
 }
 
-/* Make text readable by default */
-p {
-  max-width: 70ch;
+/* Strong focus */
+:focus-visible {
+  outline: 5px solid var(--aac-focus);
+  outline-offset: 4px;
 }
 
-/* ---------- Links ---------- */
-a {
-  color: var(--aac-brand);
-  text-decoration: none;
-  font-weight: 600;
-}
-a:hover {
-  text-decoration: underline;
-}
-
-/* ---------- Touch targets (AAC-friendly) ---------- */
+/* Touch targets */
 button,
 input,
 select,
@@ -73,69 +68,141 @@ textarea {
   font-size: 18px;
 }
 
-/* Inputs should feel “touch-first” */
-input,
-textarea,
-select {
+/* ---------- AAC components ---------- */
+.aac-card {
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.80);
+  border: 2px solid rgba(99, 102, 241, 0.20);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.aac-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.aac-panel {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.65),
+    rgba(236, 254, 255, 0.55)
+  );
+  border: 2px solid rgba(56, 189, 248, 0.20);
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.10);
+}
+
+/* Bigger, more “toy-like” pills */
+.aac-pill {
+  background: rgba(255, 255, 255, 0.75);
+  border: 2px solid rgba(99, 102, 241, 0.22);
+}
+
+.aac-pill--active {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.20);
+}
+
+.aac-input {
   border-width: 2px;
-  border-color: var(--aac-border);
+  border-color: rgba(99, 102, 241, 0.25);
   border-radius: 18px;
+  background: #fff;
 }
 
-/* Disabled affordance */
-button:disabled,
-[aria-disabled="true"] {
-  opacity: 0.6;
-  cursor: not-allowed;
+.aac-tile {
+  width: 100%;
+  border-radius: 28px;
+  padding: 18px;
+  text-align: left;
+  box-shadow: var(--shadow-soft);
+  border: 2px solid rgba(99, 102, 241, 0.16);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.aac-tile:hover {
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
+}
+.aac-tile:active {
+  transform: translateY(2px);
 }
 
-/* ---------- Focus (very visible) ---------- */
-:focus-visible {
-  outline: 4px solid var(--aac-brand);
-  outline-offset: 4px;
+.aac-tile-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.aac-tile-label {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.aac-tile-speech {
+  margin-top: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--aac-muted);
+}
+.aac-tile-hint {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 900;
 }
 
-/* ---------- Selection highlight ---------- */
-::selection {
-  background: rgba(79, 70, 229, 0.22);
+.aac-tone-a {
+  background: var(--tone-a-bg);
+  border-color: var(--tone-a-br);
+}
+.aac-tone-a .aac-tile-hint {
+  color: var(--tone-a-ac);
+}
+.aac-tone-b {
+  background: var(--tone-b-bg);
+  border-color: var(--tone-b-br);
+}
+.aac-tone-b .aac-tile-hint {
+  color: var(--tone-b-ac);
+}
+.aac-tone-c {
+  background: var(--tone-c-bg);
+  border-color: var(--tone-c-br);
+}
+.aac-tone-c .aac-tile-hint {
+  color: var(--tone-c-ac);
 }
 
-/* ---------- Reduced motion ---------- */
+.aac-picto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+}
+
+.aac-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 18px;
+  background: rgba(79, 70, 229, 0.1);
+  border: 2px solid rgba(79, 70, 229, 0.18);
+  font-size: 28px;
+  font-weight: 900;
+  color: rgba(79, 70, 229, 0.95);
+}
+
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * {
-    scroll-behavior: auto !important;
     transition: none !important;
     animation: none !important;
+    scroll-behavior: auto !important;
   }
-}
-
-/* ---------- High contrast preference ---------- */
-@media (prefers-contrast: more) {
-  :root {
-    --aac-border: #1e293b;
-  }
-
-  :focus-visible {
-    outline-width: 5px;
-  }
-
-  input,
-  textarea,
-  select {
-    border-color: #1e293b;
-  }
-}
-
-/* ---------- Optional: nicer scrollbars (safe) ---------- */
-@supports selector(::-webkit-scrollbar) {
-  ::-webkit-scrollbar {
-    width: 12px;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(79, 70, 229, 0.25);
-    border-radius: 999px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(79, 70, 229, 0.35);
+  .aac-tile:active {
+    transform: none;
   }
 }
