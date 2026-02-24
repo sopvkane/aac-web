@@ -2,9 +2,10 @@
   "schemaVersion": 2,
 
   "user": {
-    "id": "user-001",
-    "name": "Sophie",
-    "preferredName": "Sophie",
+    "id": "demo-child-001",
+    "name": "Mia",
+    "preferredName": "Mia",
+    "age": 10,
     "ageBand": "child",
     "language": "en-GB",
     "readingLevel": "low",
@@ -12,194 +13,101 @@
     "tone": "friendly_calm"
   },
 
+  "family": {
+    "mum": { "name": "Sarah" },
+    "dad": { "name": "Mark" },
+    "brother": { "name": "Liam", "age": 12 },
+    "sister": { "name": "Ava", "age": 7 }
+  },
+
+  "pets": [
+    {
+      "type": "dog",
+      "name": "Bella",
+      "breed": "Cocker Spaniel",
+      "colour": "brown"
+    }
+  ],
+
   "style": {
     "yesPrefix": "Yes, please. I would like ",
     "noText": "No, thank you.",
-    "repeatText": "Can you say that again, please?",
+    "repeatText": "Can you say it again, please?",
     "helpText": "Can you help me, please?",
-    "showMeText": "Can you show me, please?",
     "notSureText": "I'm not sure."
   },
 
   "preferences": {
     "likes": {
       "drinks": ["Water", "Apple juice", "Milk"],
-      "foods": ["Yogurt", "Toast", "Pasta", "Chicken"],
+      "foods": ["Pasta", "Chicken", "Toast", "Yogurt", "Cheese sandwich"],
       "snacks": ["Fruit", "Crisps"],
-      "activities": ["Drawing", "Minecraft", "Music"],
+      "activities": ["Drawing", "Minecraft", "Music", "Park"],
+      "movies": ["Toy Story", "Frozen", "Moana"],
+      "shows": ["Bluey", "SpongeBob"],
       "topics": ["Animals", "Cartoons", "Games"]
     },
     "dislikes": {
-      "drinks": ["Fizzy drinks"],
-      "foods": ["Spicy food"],
+      "drinks": ["Fizzy drinks", "Black coffee"],
+      "foods": ["Spicy food", "Onions"],
       "snacks": [],
-      "activities": ["Loud games"],
+      "activities": ["Very loud places"],
+      "movies": [],
+      "shows": [],
       "topics": []
     }
-  },
-
-  "communication": {
-    "maxReplyWords": 10,
-    "preferConcreteOptions": true,
-    "avoidAbstractResponses": true,
-    "preferNounsForLabels": true,
-    "usePolitePhrases": true,
-    "allowEmojisInLabels": true,
-    "buttonCount": 3,
-    "moreOptionsMaxItemsPerGroup": 8
   },
 
   "sensoryAndComfort": {
     "sensitivities": ["Loud noises", "Bright lights"],
     "calmingStrategies": ["Quiet space", "Deep breaths", "Music"],
-    "motivators": ["Sticker", "Screen time", "Praise"]
+    "motivators": ["Sticker", "Praise", "Screen time"]
   },
 
   "locations": {
     "HOME": {
       "displayName": "Home",
-      "rules": [
-        "Ask before having fizzy drinks.",
-        "Hot drinks only with an adult."
-      ],
+      "rules": ["Ask before fizzy drinks.", "Hot drinks only with an adult."],
       "availability": {
         "drinks": ["Water", "Apple juice", "Milk"],
-        "foods": ["Toast", "Yogurt", "Pasta", "Sandwich"],
-        "activities": ["Drawing", "Minecraft", "TV", "Board game"]
-      },
-      "people": {
-        "caregivers": ["Mum", "Dad"],
-        "others": []
+        "foods": ["Toast", "Yogurt", "Pasta", "Cheese sandwich", "Ham sandwich", "Fruit"],
+        "activities": ["Drawing", "Minecraft", "TV", "Board game"],
+        "movies": ["Toy Story", "Frozen", "Moana"],
+        "shows": ["Bluey", "SpongeBob"]
       }
     },
     "SCHOOL": {
       "displayName": "School",
-      "rules": [
-        "Water only in class.",
-        "Ask the teacher before leaving the room."
-      ],
+      "rules": ["Water only in class.", "Ask the teacher before leaving."],
       "availability": {
         "drinks": ["Water"],
         "foods": ["Fruit", "Sandwich"],
-        "activities": ["Reading", "Drawing", "Break time"]
-      },
-      "people": {
-        "caregivers": ["Teacher", "Assistant"],
-        "others": ["Friend"]
+        "activities": ["Reading", "Drawing", "Break time"],
+        "movies": [],
+        "shows": []
       }
     },
     "OUT": {
       "displayName": "Out",
-      "rules": [
-        "Stay with an adult.",
-        "Ask before choosing food or drinks."
-      ],
+      "rules": ["Stay with an adult.", "Ask before choosing."],
       "availability": {
         "drinks": ["Water", "Juice"],
         "foods": ["Fruit", "Sandwich"],
-        "activities": ["Walk", "Park", "Shop"]
-      },
-      "people": {
-        "caregivers": ["Adult"],
-        "others": []
+        "activities": ["Walk", "Park", "Shop"],
+        "movies": [],
+        "shows": []
       }
     }
   },
 
-  "needsAndPhrases": {
-    "bathroom": {
-      "urgent": {
-        "label": "Toilet now",
-        "text": "I need the toilet now, please."
-      },
-      "soon": {
-        "label": "Toilet soon",
-        "text": "I need the toilet soon, please."
-      },
-      "help": {
-        "label": "Help",
-        "text": "Can you help me get to the toilet, please?"
-      }
-    },
-    "pain": {
-      "tummy": {
-        "label": "My tummy",
-        "text": "My tummy hurts. Can you help me, please?"
-      },
-      "head": {
-        "label": "My head",
-        "text": "My head hurts. Can you help me, please?"
-      },
-      "sick": {
-        "label": "I feel sick",
-        "text": "I feel sick. Can you help me, please?"
-      }
-    },
-    "help": {
-      "general": {
-        "label": "Help",
-        "text": "Can you help me, please?"
-      },
-      "repeat": {
-        "label": "Again",
-        "text": "Can you say that again, please?"
-      },
-      "show": {
-        "label": "Show me",
-        "text": "Can you show me, please?"
-      }
-    }
-  },
-
-  "icons": {
-    "Water": "💧",
-    "Juice": "🧃",
-    "Apple juice": "🧃",
-    "Milk": "🥛",
-    "Toast": "🍞",
-    "Yogurt": "🥣",
-    "Fruit": "🍎",
-    "Sandwich": "🥪",
-    "Pasta": "🍝",
-    "Chicken": "🍗",
-    "Drawing": "🎨",
-    "Music": "🎵",
-    "Minecraft": "🎮",
-    "Park": "🏞️",
-    "Walk": "🚶",
-    "Toilet": "🚽",
-    "Help": "🆘"
-  },
-
-  "llmGuidance": {
-    "prioritiseLocationAvailability": true,
-    "prioritiseLikedItems": true,
-    "avoidDislikedItems": true,
-    "ifNoAvailabilityProvidedUseSafeDefaults": true,
-    "safeDefaults": {
-      "drinks": ["Water", "Juice", "Milk"],
-      "foods": ["Fruit", "Sandwich", "Yogurt"],
-      "activities": ["Drawing", "Music", "Walk"]
-    }
-  },
-
-  "setup": {
-    "completedSections": [
-      "user",
-      "style",
-      "preferences.likes",
-      "preferences.dislikes",
-      "locations.HOME",
-      "locations.SCHOOL"
-    ],
-    "notesForCaregiver": "Update the location availability lists for best results."
-  },
-
-  "likedFoods": ["Yogurt", "Toast", "Pasta", "Chicken"],
-  "dislikedFoods": ["Spicy food"],
+  "likedFoods": ["Pasta", "Chicken", "Toast", "Yogurt", "Cheese sandwich"],
+  "dislikedFoods": ["Spicy food", "Onions"],
   "likedDrinks": ["Water", "Apple juice", "Milk"],
-  "dislikedDrinks": ["Fizzy drinks"],
+  "dislikedDrinks": ["Fizzy drinks", "Black coffee"],
   "yesPrefix": "Yes, please. I would like ",
   "noText": "No, thank you.",
-  "repeatText": "Can you say that again, please?"
+  "repeatText": "Can you say it again, please?",
+
+  "likedMovies": ["Toy Story", "Frozen", "Moana"],
+  "likedShows": ["Bluey", "SpongeBob"]
 }
