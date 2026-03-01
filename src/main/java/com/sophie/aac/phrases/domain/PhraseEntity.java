@@ -14,7 +14,7 @@ public class PhraseEntity {
   @Id
   private UUID id;
 
-  @Column(nullable = false, length = 200)
+  @Column(nullable = false, length = 280)
   private String text;
 
   @Column(nullable = false, length = 50)
