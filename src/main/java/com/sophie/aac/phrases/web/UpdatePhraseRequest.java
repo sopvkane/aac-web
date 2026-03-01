@@ -4,6 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record UpdatePhraseRequest(
-    @NotBlank @Size(max = 200) String text,
+    @NotBlank @Size(max = 280) String text,
     @NotBlank @Size(max = 50) String category
 ) {}
