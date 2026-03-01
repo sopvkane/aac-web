@@ -41,7 +41,7 @@ class SecurityIntegrationTest {
   @Test
   void carer_profile_requires_auth() throws Exception {
     mvc.perform(get("/api/carer/profile"))
-        .andExpect(status().isForbidden()); // your config returns 403 for anonymous
+        .andExpect(status().isForbidden()); // anonymous -> forbidden with current config
   }
 
   @Test

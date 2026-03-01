@@ -9,6 +9,33 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: aac
+          POSTGRES_USER: aac
+          POSTGRES_PASSWORD: aac
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aac -d aac"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Matches application.yml placeholders
+      DB_URL: jdbc:postgresql://localhost:5432/aac
+      DB_USER: aac
+      DB_PASS: aac
+
+      # Auth pins via GitHub Secrets (set these in repo settings)
+      PARENT_PIN: ${{ secrets.PARENT_PIN }}
+      CARER_PIN: ${{ secrets.CARER_PIN }}
+      CLINICIAN_PIN: ${{ secrets.CLINICIAN_PIN }}
+      SESSION_TTL_MINUTES: "240"
+
     steps:
       - uses: actions/checkout@v4
 
