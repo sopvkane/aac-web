@@ -20,5 +20,14 @@ public record UpdateUserProfileRequest(
     @Size(max = 50) String favFood,
     @Size(max = 50) String favDrink,
     @Size(max = 50) String favShow,
-    @Size(max = 50) String favTopic
+    @Size(max = 50) String favTopic,
+    @Size(max = 500) String aboutUser,
+    @Size(max = 32) String schoolDays,
+    @Size(max = 8) String lunchTime,
+    @Size(max = 8) String dinnerTime,
+    @Size(max = 8) String bedTime,
+    @Size(max = 280) String familyNotes,
+    @Size(max = 280) String classmates,
+    @Size(max = 280) String teachers,
+    @Size(max = 280) String schoolActivities
 ) {}

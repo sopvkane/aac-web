@@ -23,5 +23,14 @@ public record UserProfileResponse(
     String favDrink,
     String favShow,
     String favTopic,
+    String aboutUser,
+    String schoolDays,
+    String lunchTime,
+    String dinnerTime,
+    String bedTime,
+    String familyNotes,
+    String classmates,
+    String teachers,
+    String schoolActivities,
     Instant updatedAt
 ) {}

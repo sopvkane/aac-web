@@ -50,6 +50,18 @@ public class UserProfileEntity {
   @Column(length = 50) private String favShow;
   @Column(length = 50) private String favTopic;
 
+  @Column(length = 500) private String aboutUser;
+
+  @Column(length = 32) private String schoolDays;
+  @Column(length = 8) private String lunchTime;
+  @Column(length = 8) private String dinnerTime;
+  @Column(length = 8) private String bedTime;
+
+  @Column(length = 280) private String familyNotes;
+  @Column(length = 280) private String classmates;
+  @Column(length = 280) private String teachers;
+  @Column(length = 280) private String schoolActivities;
+
   @Column(nullable = false)
   private Instant updatedAt;
 
@@ -90,6 +102,24 @@ public class UserProfileEntity {
   public void setFavShow(String favShow) { this.favShow = favShow; }
   public String getFavTopic() { return favTopic; }
   public void setFavTopic(String favTopic) { this.favTopic = favTopic; }
+  public String getAboutUser() { return aboutUser; }
+  public void setAboutUser(String aboutUser) { this.aboutUser = aboutUser; }
+  public String getSchoolDays() { return schoolDays; }
+  public void setSchoolDays(String schoolDays) { this.schoolDays = schoolDays; }
+  public String getLunchTime() { return lunchTime; }
+  public void setLunchTime(String lunchTime) { this.lunchTime = lunchTime; }
+  public String getDinnerTime() { return dinnerTime; }
+  public void setDinnerTime(String dinnerTime) { this.dinnerTime = dinnerTime; }
+  public String getBedTime() { return bedTime; }
+  public void setBedTime(String bedTime) { this.bedTime = bedTime; }
+  public String getFamilyNotes() { return familyNotes; }
+  public void setFamilyNotes(String familyNotes) { this.familyNotes = familyNotes; }
+  public String getClassmates() { return classmates; }
+  public void setClassmates(String classmates) { this.classmates = classmates; }
+  public String getTeachers() { return teachers; }
+  public void setTeachers(String teachers) { this.teachers = teachers; }
+  public String getSchoolActivities() { return schoolActivities; }
+  public void setSchoolActivities(String schoolActivities) { this.schoolActivities = schoolActivities; }
   public Instant getUpdatedAt() { return updatedAt; }
   public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

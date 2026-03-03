@@ -49,6 +49,17 @@ public class CaregiverProfileService {
     p.setFavShow(r.favShow());
     p.setFavTopic(r.favTopic());
 
+    p.setAboutUser(r.aboutUser());
+    p.setSchoolDays(r.schoolDays());
+    p.setLunchTime(r.lunchTime());
+    p.setDinnerTime(r.dinnerTime());
+    p.setBedTime(r.bedTime());
+
+    p.setFamilyNotes(r.familyNotes());
+    p.setClassmates(r.classmates());
+    p.setTeachers(r.teachers());
+    p.setSchoolActivities(r.schoolActivities());
+
     p.setUpdatedAt(Instant.now());
     return repo.save(p);
   }

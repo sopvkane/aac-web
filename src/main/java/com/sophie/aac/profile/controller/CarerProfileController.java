@@ -47,6 +47,15 @@ public class CarerProfileController {
         p.getFavDrink(),
         p.getFavShow(),
         p.getFavTopic(),
+        p.getAboutUser(),
+        p.getSchoolDays(),
+        p.getLunchTime(),
+        p.getDinnerTime(),
+        p.getBedTime(),
+        p.getFamilyNotes(),
+        p.getClassmates(),
+        p.getTeachers(),
+        p.getSchoolActivities(),
         p.getUpdatedAt()
     );
   }

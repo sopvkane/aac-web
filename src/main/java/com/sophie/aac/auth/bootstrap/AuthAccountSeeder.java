@@ -35,7 +35,12 @@ public class AuthAccountSeeder {
 
   private void seedRole(Role role, String pin) {
     repo.findByRole(role).ifPresentOrElse(
-        existing -> {},
+        existing -> {
+          // Keep the demo accounts in sync with the configured PINs
+          existing.setPinHash(encoder.encode(pin));
+          existing.setActive(true);
+          repo.save(existing);
+        },
         () -> {
           CaregiverAccountEntity a = new CaregiverAccountEntity();
           a.setId(UUID.randomUUID());
