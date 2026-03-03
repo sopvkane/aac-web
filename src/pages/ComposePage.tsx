@@ -256,7 +256,7 @@ export function ConversationPage() {
   // Onboarding screen
   if (!hasName) {
     return (
-      <div className="mx-auto w-full max-w-3xl px-4 py-10">
+      <div className="w-full px-0 py-0">
         <div className="rounded-[28px] border border-indigo-100 bg-white p-8 shadow-sm">
           <h1 className="text-4xl font-black tracking-tight">Welcome</h1>
           <p className="mt-3 text-lg text-slate-600">
@@ -323,7 +323,7 @@ export function ConversationPage() {
     location === "HOME" ? "Home" : location === "SCHOOL" ? "School" : "Out";
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-10">
+    <div className="w-full px-0 py-0">
       <div className="rounded-[28px] border border-indigo-100 bg-white p-8 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

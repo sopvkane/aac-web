@@ -1,5 +1,11 @@
 export type DialogueOptionGroup = { id: string; title: string; items: string[] };
-export type DialogueReply = { id: string; label: string; text: string };
+export type DialogueReply = {
+  id: string;
+  label: string;
+  text: string;
+  iconUrl?: string | null;
+  kind?: string | null;
+};
 
 export type DialogueMemory = {
   lastIntent: string;
