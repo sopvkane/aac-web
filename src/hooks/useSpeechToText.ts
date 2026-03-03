@@ -94,7 +94,6 @@ export function useSpeechToText() {
     return () => {
       void stop();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { listening, interimText, finalText, error, start, stop };

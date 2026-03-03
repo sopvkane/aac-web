@@ -344,7 +344,7 @@ export function SettingsPage() {
                         <select
                           className="aac-input px-2 py-2 text-xs rounded-lg border border-indigo-100 bg-white"
                           value={newFoodScope}
-                          onChange={(e) => setNewFoodScope(e.target.value)}
+                          onChange={(e) => setNewFoodScope(e.target.value as "HOME" | "SCHOOL" | "BOTH")}
                         >
                           <option value="HOME">Home only</option>
                           <option value="SCHOOL">School only</option>
@@ -417,7 +417,6 @@ export function SettingsPage() {
                           }}
                         >
                           {item.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={item.imageUrl}
                               alt={item.label}
@@ -509,7 +508,7 @@ export function SettingsPage() {
                         <select
                           className="aac-input px-2 py-2 text-xs rounded-lg border border-indigo-100 bg-white"
                           value={newDrinkScope}
-                          onChange={(e) => setNewDrinkScope(e.target.value)}
+                          onChange={(e) => setNewDrinkScope(e.target.value as "HOME" | "SCHOOL" | "BOTH")}
                         >
                           <option value="HOME">Home only</option>
                           <option value="SCHOOL">School only</option>
@@ -581,7 +580,6 @@ export function SettingsPage() {
                             }}
                           >
                             {item.imageUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={item.imageUrl}
                                 alt={item.label}
@@ -689,7 +687,7 @@ export function SettingsPage() {
                       <select
                         className="aac-input px-2 py-2 text-xs rounded-lg border border-indigo-100 bg-white"
                         value={newActivityScope}
-                        onChange={(e) => setNewActivityScope(e.target.value)}
+                        onChange={(e) => setNewActivityScope(e.target.value as "HOME" | "SCHOOL" | "BOTH")}
                       >
                         <option value="HOME">Home only</option>
                         <option value="SCHOOL">School only</option>
@@ -762,7 +760,6 @@ export function SettingsPage() {
                           }}
                         >
                           {item.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={item.imageUrl}
                               alt={item.label}
@@ -945,9 +942,8 @@ export function SettingsPage() {
                           }
                         }}
                       >
-                        {item.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          {item.imageUrl ? (
+                            <img
                             src={item.imageUrl}
                             alt={item.label}
                             className="h-full w-full object-cover"

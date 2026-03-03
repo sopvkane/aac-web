@@ -6,25 +6,27 @@ const stopContinuousRecognitionAsync = vi.fn<(onSuccess: () => void, onError: (e
 
 let recognizingHandler: ((s: unknown, e: { result?: { text?: string } }) => void) | null = null;
 let recognizedHandler: ((s: unknown, e: { result: { reason: number; text?: string } }) => void) | null = null;
-let canceledHandler: ((s: unknown, e: { errorDetails?: string; reason?: string }) => void) | null = null;
-let sessionStoppedHandler: (() => void) | null = null;
 
 vi.mock("microsoft-cognitiveservices-speech-sdk", () => {
   class FakeRecognizer {
-    recognizing = ((): typeof recognizingHandler => null) as any;
-    recognized = ((): typeof recognizedHandler => null) as any;
-    canceled = ((): typeof canceledHandler => null) as any;
-    sessionStopped = ((): typeof sessionStoppedHandler => null) as any;
+    recognizing = ((): typeof recognizingHandler => null) as ((
+      s: unknown,
+      e: { result?: { text?: string } }
+    ) => void);
+    recognized = ((): typeof recognizedHandler => null) as ((
+      s: unknown,
+      e: { result: { reason: number; text?: string } }
+    ) => void);
+    canceled = () => {};
+    sessionStopped = () => {};
 
     constructor() {
       recognizingHandler = (s, e) => this.recognizing(s, e);
       recognizedHandler = (s, e) => this.recognized(s, e);
-      canceledHandler = (s, e) => this.canceled(s, e);
-      sessionStoppedHandler = () => this.sessionStopped();
     }
 
-    startContinuousRecognitionAsync = startContinuousRecognitionAsync as any;
-    stopContinuousRecognitionAsync = stopContinuousRecognitionAsync as any;
+    startContinuousRecognitionAsync = startContinuousRecognitionAsync as (a: () => void, b: (e: unknown) => void) => void;
+    stopContinuousRecognitionAsync = stopContinuousRecognitionAsync as (a: () => void, b: (e: unknown) => void) => void;
     close() {}
   }
 

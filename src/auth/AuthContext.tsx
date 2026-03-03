@@ -84,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- useAuth is a hook, not a component
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
   if (!ctx) {

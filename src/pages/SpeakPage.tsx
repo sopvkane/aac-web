@@ -339,7 +339,11 @@ export function SpeakPage({ location }: { location: LocationKey }) {
   const [showPainModal, setShowPainModal] = useState(false);
   const [painTap, setPainTap] = useState<{ xPct: number; yPct: number } | null>(null);
   const [whoToAsk, setWhoToAsk] = useState<{ option: QuickSpeakOption; speech: string } | null>(null);
-  const [showWellbeingPopup, setShowWellbeingPopup] = useState(false);
+  const [showWellbeingPopup, setShowWellbeingPopup] = useState(() => {
+    const slot = isInWellbeingSlot();
+    if (!slot) return false;
+    return !localStorage.getItem(wellbeingPopupKey(slot));
+  });
   const [followUpPanel, setFollowUpPanel] = useState<FollowUpKind | null>(null);
   const [foods, setFoods] = useState<PreferenceItem[]>([]);
   const [drinks, setDrinks] = useState<PreferenceItem[]>([]);
@@ -348,16 +352,6 @@ export function SpeakPage({ location }: { location: LocationKey }) {
   const speak = async (text: string) => {
     await speakText(text);
   };
-
-  useEffect(() => {
-    const slot = isInWellbeingSlot();
-    if (!slot) return;
-    const key = wellbeingPopupKey(slot);
-    const shown = localStorage.getItem(key);
-    if (!shown) {
-      setShowWellbeingPopup(true);
-    }
-  }, []);
 
   const dismissWellbeingPopup = () => {
     const slot = isInWellbeingSlot();

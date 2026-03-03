@@ -1,6 +1,6 @@
 import { phrasesApi } from "./phrases";
-import { suggestionsApi } from "./suggestions";
-import { fetchTtsAudio, speakText } from "./tts";
+import { fetchTtsAudio } from "./tts";
+import type { UpdateUserProfileRequest } from "../types/profile";
 import { getSpeechToken } from "./speechToken";
 import { authApi } from "./auth";
 import { profileApi } from "./profile";
@@ -14,8 +14,7 @@ const mockFetch = vi.fn();
 describe("API modules", () => {
   beforeEach(() => {
     mockFetch.mockReset();
-    // @ts-expect-error override global
-    global.fetch = mockFetch;
+    (global as { fetch: typeof fetch }).fetch = mockFetch;
   });
 
   test("phrasesApi.list builds query string and parses JSON", async () => {
@@ -55,7 +54,7 @@ describe("API modules", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => profile });
 
     await profileApi.get();
-    await profileApi.update({} as any);
+    await profileApi.update({} as UpdateUserProfileRequest);
 
     expect(mockFetch).toHaveBeenNthCalledWith(1, "/api/carer/profile");
     expect(mockFetch).toHaveBeenNthCalledWith(
@@ -109,13 +108,13 @@ describe("API modules", () => {
       kind: "FOOD",
       label: "Banana",
       scope: "HOME",
-    } as any);
+    });
 
     await preferencesApi.update("2", {
       kind: "FOOD",
       label: "Banana",
       scope: "HOME",
-    } as any);
+    });
 
     await preferencesApi.remove("2");
 

@@ -227,7 +227,6 @@ function Pictogram({
   if (iconUrl) {
     return (
       <span className="aac-picto shrink-0" aria-hidden="true">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={iconUrl} alt="" className="object-cover rounded-2xl" style={{ width: size, height: size }} />
       </span>
     );
@@ -436,6 +435,7 @@ export function ConversationPage() {
       setQuestionText(heard);
       return;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- setWakeArmed is stable (uses refs)
   }, [stt.finalText, voiceMode, name, hasName]);
 
   // Generate AI replies
@@ -470,6 +470,14 @@ export function ConversationPage() {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
   }, [questionText, name, hasName, stt.listening, location]);
+
+  // Automatically show options when the backend suggests them (e.g. for drink questions).
+  const optionGroups = ai?.optionGroups ?? [];
+  useEffect(() => {
+    if (optionGroups.length > 0) {
+      setShowMore(true);
+    }
+  }, [optionGroups.length]);
 
   // Onboarding
   if (!hasName) {
@@ -521,15 +529,7 @@ export function ConversationPage() {
   }
 
   const replies = ai?.topReplies?.slice(0, 3) ?? [];
-  const optionGroups = ai?.optionGroups ?? [];
   const tones = ["aac-tone-a", "aac-tone-b", "aac-tone-c"];
-
-  // Automatically show options when the backend suggests them (e.g. for drink questions).
-  useEffect(() => {
-    if (optionGroups.length > 0) {
-      setShowMore(true);
-    }
-  }, [optionGroups.length]);
 
   return (
     <div className="w-full px-0 py-0">

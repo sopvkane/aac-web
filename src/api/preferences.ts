@@ -19,21 +19,32 @@ const parseTags = (raw: string | null): string[] => {
     .filter(Boolean);
 };
 
-const normaliseItem = (raw: any): PreferenceItem => ({
+type RawPreferenceItem = {
+  id?: unknown;
+  kind?: unknown;
+  label?: unknown;
+  category?: unknown;
+  tags?: unknown;
+  imageUrl?: unknown;
+  scope?: unknown;
+  priority?: unknown;
+};
+
+const normaliseItem = (raw: RawPreferenceItem): PreferenceItem => ({
   id: String(raw.id),
-  kind: raw.kind,
-  label: raw.label,
-  category: raw.category ?? null,
-  tags: parseTags(raw.tags ?? null),
-  imageUrl: raw.imageUrl ?? null,
-  scope: raw.scope as "HOME" | "SCHOOL" | "BOTH",
+  kind: raw.kind as PreferenceItem["kind"],
+  label: String(raw.label ?? ""),
+  category: raw.category != null ? String(raw.category) : null,
+  tags: parseTags(typeof raw.tags === "string" ? raw.tags : null),
+  imageUrl: raw.imageUrl != null ? String(raw.imageUrl) : null,
+  scope: (raw.scope as PreferenceItem["scope"]) ?? "HOME",
   priority: typeof raw.priority === "number" ? raw.priority : 0,
 });
 
 export const preferencesApi = {
   async list(kind: PreferenceKind): Promise<PreferenceItem[]> {
     const res = await fetch(`/api/carer/preferences?kind=${encodeURIComponent(kind)}`);
-    const json = await handleJson<any[]>(res);
+    const json = await handleJson<RawPreferenceItem[]>(res);
     return json.map(normaliseItem);
   },
 
@@ -51,7 +62,7 @@ export const preferencesApi = {
         priority: body.priority ?? 0,
       }),
     });
-    const json = await handleJson<any>(res);
+    const json = await handleJson<RawPreferenceItem>(res);
     return normaliseItem(json);
   },
 
@@ -69,7 +80,7 @@ export const preferencesApi = {
         priority: body.priority ?? 0,
       }),
     });
-    const json = await handleJson<any>(res);
+    const json = await handleJson<RawPreferenceItem>(res);
     return normaliseItem(json);
   },
 
