@@ -1,5 +1,6 @@
 import { phrasesApi } from "./phrases";
-import { fetchTtsAudio } from "./tts";
+import { suggestionsApi } from "./suggestions";
+import { fetchTtsAudio, speakText } from "./tts";
 import type { UpdateUserProfileRequest } from "../types/profile";
 import { getSpeechToken } from "./speechToken";
 import { authApi } from "./auth";
@@ -27,6 +28,56 @@ describe("API modules", () => {
 
     expect(mockFetch).toHaveBeenCalledWith("/api/phrases?q=hi&category=greeting");
     expect(res[0].text).toBe("Hi");
+  });
+
+  test("phrasesApi.list with empty params hits base URL", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => [] });
+    await phrasesApi.list();
+    expect(mockFetch).toHaveBeenCalledWith("/api/phrases");
+  });
+
+  test("phrasesApi.get, create, update, remove", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "1", text: "Hi", category: "g", createdAt: "x" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "2", text: "New", category: "g", createdAt: "x" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "1", text: "Updated", category: "g", createdAt: "x" }),
+      })
+      .mockResolvedValueOnce({ ok: true });
+
+    const got = await phrasesApi.get("1");
+    expect(got.text).toBe("Hi");
+    expect(mockFetch).toHaveBeenLastCalledWith("/api/phrases/1");
+
+    await phrasesApi.create({ text: "New", category: "g" });
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      "/api/phrases",
+      expect.objectContaining({ method: "POST" })
+    );
+
+    await phrasesApi.update("1", { text: "Updated", category: "g" });
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      "/api/phrases/1",
+      expect.objectContaining({ method: "PUT" })
+    );
+
+    await phrasesApi.remove("1");
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      "/api/phrases/1",
+      expect.objectContaining({ method: "DELETE" })
+    );
+  });
+
+  test("phrasesApi.remove throws on error", async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 404, statusText: "Not Found", text: async () => "" });
+    await expect(phrasesApi.remove("x")).rejects.toThrow(/404 Not Found/);
   });
 
   test("authApi.login posts body and handles error", async () => {
@@ -149,60 +200,170 @@ describe("API modules", () => {
     );
   });
 
-  test("fetchTtsAudio and speakText call /api/tts", async () => {
+  test("fetchTtsAudio returns blob and handles voice param", async () => {
     const blob = new Blob();
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
       statusText: "OK",
-      text: async () => "",
       blob: async () => blob,
     });
 
     const audio = await fetchTtsAudio("hi");
     expect(audio).toBe(blob);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/tts",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ text: "hi", voice: undefined }),
+      })
+    );
+
+    await fetchTtsAudio("hello", "en-GB-SoniaNeural");
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      "/api/tts",
+      expect.objectContaining({
+        body: JSON.stringify({ text: "hello", voice: "en-GB-SoniaNeural" }),
+      })
+    );
   });
 
-  test("getSpeechToken hits /api/speech/token", async () => {
+  test("fetchTtsAudio throws on error response", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Server Error",
+      text: async () => "Internal error",
+    });
+
+    await expect(fetchTtsAudio("hi")).rejects.toThrow(/500 Server Error/);
+  });
+
+  test("speakText fetches audio and plays it", async () => {
+    const blob = new Blob();
+    mockFetch.mockResolvedValue({ ok: true, blob: async () => blob });
+
+    const mockPlay = vi.fn().mockResolvedValue(undefined);
+    const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:mock");
+    const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+
+    const OriginalAudio = global.Audio;
+    class MockAudio {
+      _onended: (() => void) | null = null;
+      _onerror: (() => void) | null = null;
+      play = mockPlay;
+      get onended() {
+        return this._onended;
+      }
+      set onended(fn: () => void) {
+        this._onended = fn;
+        if (fn) setTimeout(() => fn(), 0);
+      }
+      get onerror() {
+        return this._onerror;
+      }
+      set onerror(fn: () => void) {
+        this._onerror = fn;
+      }
+    }
+    (global as { Audio: typeof MockAudio }).Audio = MockAudio as unknown as typeof Audio;
+
+    await speakText("hello");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/tts",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(createObjectURL).toHaveBeenCalledWith(blob);
+    expect(mockPlay).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+
+    (global as { Audio: typeof Audio }).Audio = OriginalAudio;
+    createObjectURL.mockRestore();
+    revokeObjectURL.mockRestore();
+  });
+
+  test("getSpeechToken hits /api/speech/token and parses response", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
-      status: 200,
-      statusText: "OK",
-      text: async () => "",
       json: async () => ({ token: "t", region: "r", expiresInSeconds: 10 }),
     });
 
     const res = await getSpeechToken();
     expect(mockFetch).toHaveBeenCalledWith("/api/speech/token");
     expect(res.token).toBe("t");
+    expect(res.region).toBe("r");
+    expect(res.expiresInSeconds).toBe(10);
   });
 
-  test("getDialogueReplies posts payload", async () => {
+  test("getSpeechToken throws on error response", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: "Forbidden",
+      text: async () => "Unauthorized",
+    });
+
+    await expect(getSpeechToken()).rejects.toThrow(/403 Forbidden/);
+  });
+
+  test("getDialogueReplies posts payload and handles context/memory", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
-      statusText: "OK",
-      text: async () => "",
       json: async () => ({
         intent: "test",
         topReplies: [],
         optionGroups: [],
-        memory: {
-          lastIntent: "",
-          lastQuestionText: "",
-          lastOptionGroups: [],
-        },
+        memory: { lastIntent: "", lastQuestionText: "", lastOptionGroups: [] },
       }),
     });
 
     await getDialogueReplies({
       userName: "Sophie",
       questionText: "Hello?",
+      context: { location: "HOME" },
+      memory: { lastIntent: "", lastQuestionText: "", lastOptionGroups: [] },
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/dialogue/replies",
-      expect.objectContaining({ method: "POST" })
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          userName: "Sophie",
+          questionText: "Hello?",
+          context: { location: "HOME" },
+          memory: { lastIntent: "", lastQuestionText: "", lastOptionGroups: [] },
+        }),
+      })
+    );
+  });
+
+  test("getDialogueReplies throws on error response", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 502,
+      statusText: "Bad Gateway",
+      text: async () => "Upstream error",
+    });
+
+    await expect(
+      getDialogueReplies({ userName: "S", questionText: "?" })
+    ).rejects.toThrow(/502 Bad Gateway/);
+  });
+
+  test("suggestionsApi.suggest posts payload", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ suggestions: ["apple", "banana"] }),
+    });
+
+    const res = await suggestionsApi.suggest({ partial: "app", category: "FOOD" });
+    expect(res.suggestions).toEqual(["apple", "banana"]);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/suggestions",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ partial: "app", category: "FOOD" }) })
     );
   });
 });
