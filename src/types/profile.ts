@@ -1,0 +1,62 @@
+export type LocationCategory = "HOME" | "SCHOOL" | "WORK" | "OTHER";
+
+export type UserProfile = {
+  id: string;
+  displayName: string;
+  wakeName: string;
+  detailsDefault: boolean;
+  voiceDefault: boolean;
+  aiEnabled: boolean;
+  memoryEnabled: boolean;
+  analyticsEnabled: boolean;
+  defaultLocation: LocationCategory;
+  allowHome: boolean;
+  allowSchool: boolean;
+  allowWork: boolean;
+  allowOther: boolean;
+  maxOptions: number;
+  favFood: string | null;
+  favDrink: string | null;
+  favShow: string | null;
+  favTopic: string | null;
+  aboutUser: string | null;
+  schoolDays: string | null;
+  lunchTime: string | null;
+  dinnerTime: string | null;
+  bedTime: string | null;
+  familyNotes: string | null;
+  classmates: string | null;
+  teachers: string | null;
+  schoolActivities: string | null;
+  updatedAt: string;
+};
+
+export type UpdateUserProfileRequest = {
+  displayName: string;
+  wakeName: string;
+  detailsDefault: boolean;
+  voiceDefault: boolean;
+  aiEnabled: boolean;
+  memoryEnabled: boolean;
+  analyticsEnabled: boolean;
+  defaultLocation: LocationCategory;
+  allowHome: boolean;
+  allowSchool: boolean;
+  allowWork: boolean;
+  allowOther: boolean;
+  maxOptions: number;
+  favFood: string | null;
+  favDrink: string | null;
+  favShow: string | null;
+  favTopic: string | null;
+  aboutUser: string | null;
+  schoolDays: string | null;
+  lunchTime: string | null;
+  dinnerTime: string | null;
+  bedTime: string | null;
+  familyNotes: string | null;
+  classmates: string | null;
+  teachers: string | null;
+  schoolActivities: string | null;
+};
+

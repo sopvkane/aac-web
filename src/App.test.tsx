@@ -1,7 +1,11 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { render, screen } from "@testing-library/react";
+import App from "./App";
 
-test('renders app heading', () => {
+test("renders main navigation tabs", () => {
   render(<App />);
-  expect(screen.getByText(/vite \+ react/i)).toBeInTheDocument();
+
+  expect(screen.getByText("Speak")).toBeInTheDocument();
+  expect(screen.getByText("Conversation")).toBeInTheDocument();
+  expect(screen.getByText("Caregiver dashboard")).toBeInTheDocument();
+  expect(screen.getByText("Settings")).toBeInTheDocument();
 });
