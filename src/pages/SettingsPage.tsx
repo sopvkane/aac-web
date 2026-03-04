@@ -829,7 +829,7 @@ export function SettingsPage() {
                         onChange={(e) => setNewActivityLabel(e.target.value)}
                       />
                       <select
-                        className="aak-input px-2 py-2 text-xs rounded-lg border border-indigo-100 bg-white"
+                        className="aac-input px-2 py-2 text-xs rounded-lg border border-indigo-100 bg-white"
                         value={newActivityCategory}
                         onChange={(e) => setNewActivityCategory(e.target.value)}
                       >
