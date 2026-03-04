@@ -2,6 +2,21 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SettingsPage } from "./SettingsPage";
 import { AuthProvider } from "../auth/AuthContext";
 
+vi.mock("../api/auth", () => ({
+  authApi: {
+    me: vi.fn().mockRejectedValue(new Error("Not authenticated")),
+    login: vi.fn().mockResolvedValue({
+      role: "PARENT",
+      activeProfileId: null,
+      profileIds: [],
+      profiles: [],
+    }),
+    register: vi.fn(),
+    selectProfile: vi.fn(),
+    logout: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 vi.mock("../api/profile", () => {
   const mockProfile = {
     id: "profile-1",
@@ -68,11 +83,12 @@ test("successful sign-in shows signed-in state", async () => {
     </AuthProvider>
   );
 
-  const pinInput = await screen.findByPlaceholderText(/Enter your 4-digit PIN/i);
-  const submit = screen.getByRole("button", { name: /Sign in/i });
+  // Click PIN tab (default may be email)
+  const pinTab = screen.getByRole("button", { name: /^PIN$/i });
+  fireEvent.click(pinTab);
 
-  // Default role is PARENT, PIN 1234 is valid per AuthContext
-  await screen.findByText(/Demo values/);
+  const pinInput = await screen.findByPlaceholderText(/Enter PIN/i);
+  const submit = screen.getByRole("button", { name: /Sign in/i });
 
   fireEvent.change(pinInput, { target: { value: "1234" } });
   fireEvent.click(submit);

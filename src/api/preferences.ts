@@ -42,8 +42,19 @@ const normaliseItem = (raw: RawPreferenceItem): PreferenceItem => ({
 });
 
 export const preferencesApi = {
+  /** Who-to-ask people for Speak tab, filtered by location (HOME | SCHOOL | BUS). Use for person picker. */
+  async whoToAsk(location: "HOME" | "SCHOOL" | "BUS"): Promise<PreferenceItem[]> {
+    const res = await fetch(`/api/carer/preferences/who-to-ask?location=${encodeURIComponent(location)}`, {
+      credentials: "include",
+    });
+    const json = await handleJson<RawPreferenceItem[]>(res);
+    return json.map(normaliseItem);
+  },
+
   async list(kind: PreferenceKind): Promise<PreferenceItem[]> {
-    const res = await fetch(`/api/carer/preferences?kind=${encodeURIComponent(kind)}`);
+    const res = await fetch(`/api/carer/preferences?kind=${encodeURIComponent(kind)}`, {
+      credentials: "include",
+    });
     const json = await handleJson<RawPreferenceItem[]>(res);
     return json.map(normaliseItem);
   },
@@ -51,6 +62,7 @@ export const preferencesApi = {
   async create(body: PreferenceItemRequest): Promise<PreferenceItem> {
     const res = await fetch("/api/carer/preferences", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         kind: body.kind,
@@ -69,6 +81,7 @@ export const preferencesApi = {
   async update(id: string, body: PreferenceItemRequest): Promise<PreferenceItem> {
     const res = await fetch(`/api/carer/preferences/${encodeURIComponent(id)}`, {
       method: "PUT",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         kind: body.kind,
@@ -87,6 +100,7 @@ export const preferencesApi = {
   async remove(id: string): Promise<void> {
     const res = await fetch(`/api/carer/preferences/${encodeURIComponent(id)}`, {
       method: "DELETE",
+      credentials: "include",
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");

@@ -84,7 +84,12 @@ describe("API modules", () => {
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ role: "PARENT" }),
+        json: async () => ({
+          role: "PARENT",
+          activeProfileId: null,
+          profileIds: [],
+          profiles: [],
+        }),
       })
       .mockResolvedValueOnce({
         ok: false,
@@ -93,7 +98,7 @@ describe("API modules", () => {
         text: async () => "bad",
       });
 
-    const ok = await authApi.login({ role: "PARENT", pin: "1234" });
+    const ok = await authApi.login({ pin: "1234" });
     expect(ok.role).toBe("PARENT");
     await expect(authApi.me()).rejects.toThrow(/401 Unauthorized/);
   });
@@ -107,11 +112,13 @@ describe("API modules", () => {
     await profileApi.get();
     await profileApi.update({} as UpdateUserProfileRequest);
 
-    expect(mockFetch).toHaveBeenNthCalledWith(1, "/api/carer/profile");
+    expect(mockFetch).toHaveBeenNthCalledWith(1, "/api/carer/profile", {
+      credentials: "include",
+    });
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
       "/api/carer/profile",
-      expect.objectContaining({ method: "PUT" })
+      expect.objectContaining({ method: "PUT", credentials: "include" })
     );
   });
 
@@ -179,7 +186,10 @@ describe("API modules", () => {
     });
 
     await caregiverApi.getDashboard("WEEK");
-    expect(mockFetch).toHaveBeenCalledWith("/api/carer/dashboard?period=WEEK");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/carer/dashboard?period=WEEK",
+      { credentials: "include" }
+    );
   });
 
   test("wellbeingApi.recordMood and recordPain post JSON", async () => {
@@ -255,18 +265,18 @@ describe("API modules", () => {
       get onended() {
         return this._onended;
       }
-      set onended(fn: () => void) {
+      set onended(fn: (() => void) | null) {
         this._onended = fn;
         if (fn) setTimeout(() => fn(), 0);
       }
       get onerror() {
         return this._onerror;
       }
-      set onerror(fn: () => void) {
+      set onerror(fn: (() => void) | null) {
         this._onerror = fn;
       }
     }
-    (global as { Audio: typeof MockAudio }).Audio = MockAudio as unknown as typeof Audio;
+    (global as unknown as { Audio: typeof MockAudio }).Audio = MockAudio;
 
     await speakText("hello");
 
@@ -278,7 +288,7 @@ describe("API modules", () => {
     expect(mockPlay).toHaveBeenCalled();
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock");
 
-    (global as { Audio: typeof Audio }).Audio = OriginalAudio;
+    (global as unknown as { Audio: typeof Audio }).Audio = OriginalAudio;
     createObjectURL.mockRestore();
     revokeObjectURL.mockRestore();
   });
@@ -356,14 +366,28 @@ describe("API modules", () => {
   test("suggestionsApi.suggest posts payload", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ suggestions: ["apple", "banana"] }),
+      json: async () => ({
+        suggestions: [
+          { phrase: { id: "1", text: "apple", category: "FOOD" }, score: 1 },
+          { phrase: { id: "2", text: "banana", category: "FOOD" }, score: 1 },
+        ],
+        meta: { prefix: "app", timeBucket: "MORNING", locationCategory: "HOME", limit: 10 },
+      }),
     });
 
-    const res = await suggestionsApi.suggest({ partial: "app", category: "FOOD" });
-    expect(res.suggestions).toEqual(["apple", "banana"]);
+    const res = await suggestionsApi.suggest({
+      prefix: "app",
+      timeBucket: "MORNING",
+      locationCategory: "HOME",
+    });
+    expect(res.suggestions).toHaveLength(2);
+    expect(res.suggestions[0]!.phrase.text).toBe("apple");
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/suggestions",
-      expect.objectContaining({ method: "POST", body: JSON.stringify({ partial: "app", category: "FOOD" }) })
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ prefix: "app", timeBucket: "MORNING", locationCategory: "HOME" }),
+      })
     );
   });
 });

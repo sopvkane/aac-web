@@ -10,7 +10,7 @@ const handleJson = async <T>(res: Response): Promise<T> => {
 
 export const profileApi = {
   async get(): Promise<UserProfile> {
-    const res = await fetch("/api/carer/profile");
+    const res = await fetch("/api/carer/profile", { credentials: "include" });
     return handleJson<UserProfile>(res);
   },
 
@@ -19,6 +19,7 @@ export const profileApi = {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      credentials: "include",
     });
     return handleJson<UserProfile>(res);
   },

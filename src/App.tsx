@@ -1,10 +1,13 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { cn } from "./lib/cn";
+import { useAuth } from "./auth/AuthContext";
+import { SplashScreen } from "./pages/SplashScreen";
 import { ConversationPage } from "./pages/ConversationPage";
 import { SpeakPage } from "./pages/SpeakPage";
-import { PhrasesPage } from "./pages/PhrasesPage";
 import { CaregiverDashboardPage } from "./pages/CaregiverDashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { IconMappingSection } from "./components/IconMappingSection";
+import { ProfileHeaderButton } from "./components/ProfileHeaderButton";
 
 function SkipLink() {
   return (
@@ -17,15 +20,12 @@ function SkipLink() {
   );
 }
 
-export default function App() {
+function MainApp() {
   return (
-    <>
-      <SkipLink />
-
-      <Tabs.Root defaultValue="speak">
+    <Tabs.Root defaultValue="speak">
         <nav className="sticky top-0 z-40 border-b-2 border-indigo-200 bg-white/70 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-[1400px] items-center justify-center px-3 py-4 sm:px-6">
-            <Tabs.List className="flex gap-3 rounded-3xl bg-indigo-50 p-2 border-2 border-indigo-100 shadow-sm">
+          <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4 px-3 py-4 sm:px-6">
+            <Tabs.List className="flex flex-1 justify-center gap-3 rounded-3xl bg-indigo-50 p-2 border-2 border-indigo-100 shadow-sm">
               <Tabs.Trigger
                 value="speak"
                 className={cn(
@@ -78,13 +78,14 @@ export default function App() {
                 Settings
               </Tabs.Trigger>
             </Tabs.List>
+            <ProfileHeaderButton />
           </div>
         </nav>
 
         <main id="main" className="mx-auto w-full max-w-[1400px] px-3 py-6 sm:px-6 sm:py-10">
           <Tabs.Content value="speak">
             <div className="rounded-[28px] border-2 border-indigo-100 bg-white/70 backdrop-blur p-6 sm:p-8 shadow-[var(--shadow)]">
-              <SpeakPage location="HOME" />
+              <SpeakPage />
             </div>
           </Tabs.Content>
 
@@ -106,12 +107,42 @@ export default function App() {
                 <SettingsPage />
               </div>
               <div className="rounded-[28px] border-2 border-indigo-100 bg-white/70 backdrop-blur p-6 sm:p-8 shadow-[var(--shadow)]">
-                <PhrasesPage />
+                <IconMappingSection />
               </div>
             </div>
           </Tabs.Content>
         </main>
       </Tabs.Root>
+  );
+}
+
+export default function App() {
+  const auth = useAuth();
+
+  if (auth.loading && auth.status === "unknown") {
+    return (
+      <>
+        <SkipLink />
+        <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Loading">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+        </div>
+      </>
+    );
+  }
+
+  if (auth.status === "unauthenticated") {
+    return (
+      <>
+        <SkipLink />
+        <SplashScreen />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <SkipLink />
+      <MainApp />
     </>
   );
 }

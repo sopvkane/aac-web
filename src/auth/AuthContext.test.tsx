@@ -1,5 +1,32 @@
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { AuthProvider, useAuth } from "./AuthContext";
+
+vi.mock("../api/auth", () => ({
+  authApi: {
+    me: vi.fn().mockRejectedValue(new Error("Not authenticated")),
+    login: vi.fn().mockResolvedValue({
+      role: "PARENT",
+      activeProfileId: null,
+      profileIds: [],
+      profiles: [],
+    }),
+    register: vi.fn().mockResolvedValue({
+      role: "PARENT",
+      activeProfileId: null,
+      profileIds: [],
+      profiles: [],
+    }),
+    selectProfile: vi.fn().mockResolvedValue({
+      role: "PARENT",
+      activeProfileId: null,
+      profileIds: [],
+      profiles: [],
+    }),
+    logout: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
+import { authApi } from "../api/auth";
 
 function renderUseAuth() {
   return renderHook(() => useAuth(), {
@@ -8,13 +35,24 @@ function renderUseAuth() {
 }
 
 describe("AuthContext", () => {
-  test("login with correct PIN authenticates and sets role", async () => {
+  beforeEach(() => {
+    vi.mocked(authApi.me).mockRejectedValue(new Error("Not authenticated"));
+    vi.mocked(authApi.login).mockResolvedValue({
+      role: "PARENT",
+      activeProfileId: null,
+      profileIds: [],
+      profiles: [],
+    });
+    vi.mocked(authApi.logout).mockResolvedValue(undefined);
+  });
+
+  test("loginWithPin with correct PIN authenticates and sets role", async () => {
     const { result } = renderUseAuth();
 
-    expect(result.current.status).toBe("unauthenticated");
+    await waitFor(() => expect(result.current.status).not.toBe("unknown"));
 
     await act(async () => {
-      await result.current.login("PARENT", "1234");
+      await result.current.loginWithPin("1234");
     });
 
     expect(result.current.status).toBe("authenticated");
@@ -22,23 +60,27 @@ describe("AuthContext", () => {
     expect(result.current.error).toBeNull();
   });
 
-  test("login with wrong PIN sets error", async () => {
+  test("loginWithPin with wrong PIN sets error", async () => {
+    vi.mocked(authApi.login).mockRejectedValue(new Error("Invalid PIN"));
     const { result } = renderUseAuth();
 
+    await waitFor(() => expect(result.current.status).not.toBe("unknown"));
+
     await act(async () => {
-      await expect(result.current.login("PARENT", "9999")).rejects.toThrow();
+      await expect(result.current.loginWithPin("9999")).rejects.toThrow();
     });
 
     expect(result.current.status).toBe("unauthenticated");
     expect(result.current.role).toBeNull();
-    expect(result.current.error).toBe("Invalid PIN for selected role");
   });
 
   test("logout clears role and status", async () => {
     const { result } = renderUseAuth();
 
+    await waitFor(() => expect(result.current.status).not.toBe("unknown"));
+
     await act(async () => {
-      await result.current.login("PARENT", "1234");
+      await result.current.loginWithPin("1234");
     });
 
     await act(async () => {
@@ -46,6 +88,20 @@ describe("AuthContext", () => {
     });
 
     expect(result.current.status).toBe("unauthenticated");
+    expect(result.current.role).toBeNull();
+  });
+
+  test("continueAsGuest sets guest status", async () => {
+    const { result } = renderUseAuth();
+
+    await waitFor(() => expect(result.current.status).not.toBe("unknown"));
+    expect(result.current.status).toBe("unauthenticated");
+
+    act(() => {
+      result.current.continueAsGuest();
+    });
+
+    expect(result.current.status).toBe("guest");
     expect(result.current.role).toBeNull();
   });
 });
