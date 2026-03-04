@@ -278,7 +278,8 @@ function formatTime(hour: number, minute: number) {
 }
 
 function TodayTimeline({
-  location: _location,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- location passed for API consistency; reserved for future use
+  location,
   onItemSelect,
   testTimelineItemId,
 }: {

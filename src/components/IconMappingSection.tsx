@@ -366,7 +366,7 @@ export function IconMappingSection() {
     auth.role === "SCHOOL_ADMIN" ||
     auth.role === "SCHOOL_TEACHER";
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (auth.status !== "authenticated") return;
     setError(null);
     setLoading(true);
@@ -405,11 +405,11 @@ export function IconMappingSection() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [auth.status, auth.role]);
 
   useEffect(() => {
     void load();
-  }, [auth.status, auth.role]);
+  }, [load]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
