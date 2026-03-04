@@ -1,23 +1,70 @@
 import { useEffect, useMemo, useState } from "react";
+import { Icon } from "@iconify/react";
+import { Home, GraduationCap, Bus, MapPin } from "lucide-react";
 import { speakText } from "../api/tts";
+import { profileApi } from "../api/profile";
 import { Button } from "../components/ui/button";
 import { wellbeingApi } from "../api/wellbeing";
 import { preferencesApi } from "../api/preferences";
+import { interactionsApi } from "../api/interactions";
 import type { PreferenceItem } from "../types/preferences";
 
 type LocationKey = "HOME" | "SCHOOL" | "OUT";
+
+/** Fallback icon for follow-up items when imageUrl is not set. Twemoji for clarity. */
+function fallbackIconForLabel(label: string, kind: FollowUpKind): string | null {
+  const t = label.trim().toLowerCase();
+  if (kind === "DRINK") {
+    if (t.includes("water")) return "twemoji:droplet";
+    if (t.includes("juice") || t.includes("apple")) return "twemoji:cup-with-straw";
+    if (t.includes("milk")) return "twemoji:glass-of-milk";
+    if (t.includes("tea")) return "twemoji:teacup-without-handle";
+    if (t.includes("coffee")) return "twemoji:hot-beverage";
+    if (t.includes("cola") || t.includes("fizzy")) return "twemoji:cup-with-straw";
+    return "twemoji:cup-with-straw";
+  }
+  if (kind === "FOOD") {
+    if (t.includes("apple")) return "twemoji:red-apple";
+    if (t.includes("banana")) return "twemoji:banana";
+    if (t.includes("toast") || t.includes("bread")) return "twemoji:bread";
+    if (t.includes("sandwich")) return "twemoji:sandwich";
+    if (t.includes("pizza")) return "twemoji:slice-of-pizza";
+    if (t.includes("cereal")) return "twemoji:bowl-with-spoon";
+    if (t.includes("fruit")) return "twemoji:grapes";
+    return "twemoji:plate-with-cutlery";
+  }
+  if (kind === "TV") {
+    if (t.includes("bluey")) return "twemoji:dog-face";
+    if (t.includes("peppa") || t.includes("pig")) return "twemoji:pig-face";
+    if (t.includes("cocomelon")) return "twemoji:melon";
+    return "twemoji:television";
+  }
+  if (kind === "ACTIVITY") {
+    if (t.includes("play") || t.includes("game")) return "twemoji:game-die";
+    if (t.includes("outside") || t.includes("park")) return "twemoji:sun";
+    if (t.includes("book")) return "twemoji:open-book";
+    if (t.includes("ipad") || t.includes("tablet")) return "twemoji:mobile-phone";
+    return "twemoji:video-game";
+  }
+  return null;
+}
+
+/** Effective location derived from time of day (includes bus during commute) */
+export type EffectiveLocation = "HOME" | "SCHOOL" | "BUS" | "OUT";
 
 /** Timeline-aligned block: which part of the day we're in */
 type TimelineBlock =
   | "SLEEPING"   // 21:00–7:30: woke up during night
   | "WAKE"       // 7:30–8:00
   | "BREAKFAST"  // 8:00–10:00
-  | "MORNING"    // 10:00–12:15 (play/school, drink)
+  | "MORNING"    // 10:00–12:15 (play/school)
+  | "DRINK_BREAK"  // 10:30 drink break (different from class)
   | "LUNCH"      // 12:15–14:30
   | "AFTERNOON"  // 14:30–16:30 (mood, snack)
   | "HOME_TIME"  // 16:30–18:00
   | "DINNER"     // 18:00–19:45
-  | "WIND_DOWN"; // 19:45–21:00
+  | "WIND_DOWN"  // 19:45–21:00
+  | "BUS";       // 8:00–9:00 or 15:30–16:30 (school days, commute)
 
 type FollowUpKind = "FOOD" | "DRINK" | "ACTIVITY" | "TV";
 
@@ -30,13 +77,19 @@ type QuickSpeakOption = {
   askWho?: boolean;
   /** Only show when at home */
   homeOnly?: boolean;
+  /** Only show when at school */
+  schoolOnly?: boolean;
+  /** Only show when on bus */
+  busOnly?: boolean;
   /** After speaking, show follow-up options panel (e.g. pick a specific food/drink/show) */
   followUp?: FollowUpKind;
+  /** If set, record mood to wellbeing API when tapped (Feelings check) */
+  moodScore?: number;
 };
 
 const BLOCK_OPTIONS: Record<TimelineBlock, QuickSpeakOption[]> = {
   SLEEPING: [
-    { label: "Thirsty", speech: "I'm thirsty. Can I have some water?", icon: "🥤", tone: "aac-tone-a", askWho: true, followUp: "DRINK" },
+    { label: "Thirsty", speech: "I'm thirsty. Can I have a drink?", icon: "🥤", tone: "aac-tone-a", askWho: true, followUp: "DRINK" },
     { label: "Too hot/cold", speech: "I'm too hot or too cold.", icon: "🌡️", tone: "aac-tone-b", askWho: true },
     { label: "Don't feel well", speech: "I don't feel well.", icon: "😔", tone: "aac-tone-c", askWho: true },
   ],
@@ -52,24 +105,43 @@ const BLOCK_OPTIONS: Record<TimelineBlock, QuickSpeakOption[]> = {
     { label: "Toilet", speech: "I need the toilet.", icon: "🚻", tone: "aac-tone-c" },
   ],
   MORNING: [
-    { label: "Drink", speech: "I'm thirsty.", icon: "🥤", tone: "aac-tone-a", askWho: true, followUp: "DRINK" },
-    { label: "Toilet", speech: "I need the toilet.", icon: "🚻", tone: "aac-tone-b" },
-    { label: "Help", speech: "I need help.", icon: "🆘", tone: "aac-tone-c" },
+    { label: "Play idea", speech: "Can we do something fun?", icon: "🧸", tone: "aac-tone-a", askWho: true, homeOnly: true, followUp: "ACTIVITY" },
+    { label: "Thirsty", speech: "I'm thirsty.", icon: "🥤", tone: "aac-tone-b", askWho: true, homeOnly: true, followUp: "DRINK" },
+    { label: "Toilet", speech: "I need the toilet.", icon: "🚻", tone: "aac-tone-c", homeOnly: true },
+    { label: "Water", speech: "Can I have some water?", icon: "💧", tone: "aac-tone-a", schoolOnly: true, askWho: true },
+    { label: "Toilet", speech: "I need the toilet.", icon: "🚻", tone: "aac-tone-b", schoolOnly: true, askWho: true },
+    { label: "Help", speech: "I need help.", icon: "🆘", tone: "aac-tone-c", schoolOnly: true, askWho: true },
+  ],
+  DRINK_BREAK: [
+    { label: "Water", speech: "Can I have some water?", icon: "💧", tone: "aac-tone-a", schoolOnly: true, askWho: true },
+    { label: "Different drink", speech: "Can I have a different drink?", icon: "🥤", tone: "aac-tone-b", schoolOnly: true, askWho: true, followUp: "DRINK" },
+    { label: "I'm finished", speech: "I'm finished, thank you.", icon: "👍", tone: "aac-tone-c", schoolOnly: true },
+    { label: "Water", speech: "Can I have some water?", icon: "💧", tone: "aac-tone-a", homeOnly: true, askWho: true },
+    { label: "Different drink", speech: "Can I have a different drink?", icon: "🥤", tone: "aac-tone-b", homeOnly: true, askWho: true, followUp: "DRINK" },
+    { label: "I'm finished", speech: "I'm finished, thank you.", icon: "👍", tone: "aac-tone-c", homeOnly: true },
   ],
   LUNCH: [
     { label: "Hungry", speech: "I'm hungry.", icon: "🍽️", tone: "aac-tone-a", askWho: true, followUp: "FOOD" },
-    { label: "Drink", speech: "I'm thirsty.", icon: "🥤", tone: "aac-tone-b", askWho: true, followUp: "DRINK" },
-    { label: "Toilet", speech: "I need the toilet.", icon: "🚻", tone: "aac-tone-c" },
+    { label: "I'm full", speech: "I'm full, thank you.", icon: "🙂", tone: "aac-tone-b" },
+    { label: "Drink", speech: "I'd like a drink.", icon: "🥤", tone: "aac-tone-c", askWho: true, followUp: "DRINK" },
   ],
   AFTERNOON: [
-    { label: "Snack", speech: "I'd like a snack.", icon: "🍎", tone: "aac-tone-a", askWho: true, followUp: "FOOD" },
-    { label: "Drink", speech: "I'm thirsty.", icon: "🥤", tone: "aac-tone-b", askWho: true, followUp: "DRINK" },
-    { label: "Activity", speech: "Can we do something?", icon: "🧸", tone: "aac-tone-c", askWho: true, followUp: "ACTIVITY" },
+    { label: "Snack", speech: "I'd like a snack.", icon: "🍎", tone: "aac-tone-a", askWho: true, homeOnly: true, followUp: "FOOD" },
+    { label: "Activity", speech: "Can we do something?", icon: "🧸", tone: "aac-tone-b", askWho: true, homeOnly: true, followUp: "ACTIVITY" },
+    { label: "Go outside", speech: "Can we go outside?", icon: "🌿", tone: "aac-tone-c", askWho: true, homeOnly: true },
+    { label: "Water", speech: "Can I have some water?", icon: "💧", tone: "aac-tone-a", schoolOnly: true, askWho: true },
+    { label: "Toilet", speech: "I need the toilet.", icon: "🚻", tone: "aac-tone-b", schoolOnly: true, askWho: true },
+    { label: "Help", speech: "I need help.", icon: "🆘", tone: "aac-tone-c", schoolOnly: true, askWho: true },
+  ],
+  BUS: [
+    { label: "Feel sick", speech: "I don't feel well.", icon: "😟", tone: "aac-tone-a", askWho: true },
+    { label: "Need toilet", speech: "I need the toilet. Can we stop?", icon: "🚻", tone: "aac-tone-b", askWho: true },
+    { label: "Thirsty", speech: "I'm thirsty.", icon: "🥤", tone: "aac-tone-c", askWho: true, followUp: "DRINK" },
   ],
   HOME_TIME: [
     { label: "Snack", speech: "I'd like a snack.", icon: "🍎", tone: "aac-tone-a", askWho: true, followUp: "FOOD" },
-    { label: "Activity", speech: "Can we do something?", icon: "🧸", tone: "aac-tone-b", askWho: true, followUp: "ACTIVITY" },
-    { label: "Drink", speech: "I'm thirsty.", icon: "🥤", tone: "aac-tone-c", askWho: true, followUp: "DRINK" },
+    { label: "Tell you", speech: "I want to tell you about my day.", icon: "💬", tone: "aac-tone-b", askWho: true },
+    { label: "Activity", speech: "Can we do something?", icon: "🧸", tone: "aac-tone-c", askWho: true, followUp: "ACTIVITY" },
   ],
   DINNER: [
     { label: "Hungry", speech: "I'm hungry.", icon: "🍽️", tone: "aac-tone-a", askWho: true, followUp: "FOOD" },
@@ -83,10 +155,20 @@ const BLOCK_OPTIONS: Record<TimelineBlock, QuickSpeakOption[]> = {
   ],
 };
 
+/** Mon–Fri = school days (0=Sun, 6=Sat) */
+function isSchoolDay(): boolean {
+  const d = new Date().getDay();
+  return d >= 1 && d <= 5;
+}
+
 function currentTimelineBlock(): TimelineBlock {
   const h = new Date().getHours();
   const m = new Date().getMinutes();
   const min = h * 60 + m;
+  const schoolDay = isSchoolDay();
+  // Bus to school 8:00–9:00 (480–540), bus home 15:30–16:30 (930–990)
+  if (schoolDay && min >= 480 && min < 540) return "BUS";
+  if (schoolDay && min >= 930 && min < 990) return "BUS";
   // bed at 21:00 = 1260, wake at 7:30 = 450
   if (min >= 1260 || min < 450) return "SLEEPING";
   if (min < 480) return "WAKE";         // 8:00
@@ -99,10 +181,30 @@ function currentTimelineBlock(): TimelineBlock {
   return "WIND_DOWN";                    // 21:00
 }
 
-function optionsForBlock(block: TimelineBlock, location: LocationKey): QuickSpeakOption[] {
-  const opts = BLOCK_OPTIONS[block];
-  const filtered = opts.filter((o) => !o.homeOnly || location === "HOME");
-  return filtered.slice(0, 3);
+/** Derive effective location from time of day (school days: bus 8–9, school 9–15:30, bus 15:30–16:30) */
+function deriveEffectiveLocation(manualLocation?: LocationKey): EffectiveLocation {
+  if (manualLocation === "OUT") return "OUT";
+  const min = new Date().getHours() * 60 + new Date().getMinutes();
+  const schoolDay = isSchoolDay();
+  if (schoolDay && min >= 480 && min < 540) return "BUS";   // 8:00–9:00 to school
+  if (schoolDay && min >= 540 && min < 930) return "SCHOOL"; // 9:00–15:30
+  if (schoolDay && min >= 930 && min < 990) return "BUS";   // 15:30–16:30 from school
+  return manualLocation === "SCHOOL" ? "SCHOOL" : "HOME";
+}
+
+function optionsForBlock(
+  block: TimelineBlock,
+  effectiveLocation: EffectiveLocation,
+  maxOptions: number = 3
+): QuickSpeakOption[] {
+  const opts = BLOCK_OPTIONS[block] ?? [];
+  const filtered = opts.filter((o) => {
+    if (o.homeOnly && effectiveLocation !== "HOME") return false;
+    if (o.schoolOnly && effectiveLocation !== "SCHOOL") return false;
+    if (o.busOnly && effectiveLocation !== "BUS") return false;
+    return true;
+  });
+  return filtered.slice(0, Math.max(1, maxOptions));
 }
 
 const BLOCK_LABELS: Record<TimelineBlock, string> = {
@@ -110,8 +212,10 @@ const BLOCK_LABELS: Record<TimelineBlock, string> = {
   WAKE: "Wake up",
   BREAKFAST: "Breakfast",
   MORNING: "Morning",
+  DRINK_BREAK: "Drink break",
   LUNCH: "Lunch",
   AFTERNOON: "Afternoon",
+  BUS: "On the bus",
   HOME_TIME: "Home time",
   DINNER: "Dinner",
   WIND_DOWN: "Wind down",
@@ -122,8 +226,10 @@ const TIMELINE_ITEM_TO_BLOCK: Record<string, TimelineBlock> = {
   wake: "WAKE",
   breakfast: "BREAKFAST",
   play: "BREAKFAST",
-  school: "BREAKFAST",
-  drink: "MORNING",
+  school: "MORNING",
+  busTo: "BUS",
+  busFrom: "BUS",
+  drink: "DRINK_BREAK",
   lunch: "LUNCH",
   mood: "AFTERNOON",
   snack: "AFTERNOON",
@@ -131,6 +237,21 @@ const TIMELINE_ITEM_TO_BLOCK: Record<string, TimelineBlock> = {
   dinner: "DINNER",
   winddown: "WIND_DOWN",
   bed: "SLEEPING",
+};
+
+/** When previewing a block, which location to show (so people + badge match the block) */
+const LOCATION_FOR_BLOCK: Record<TimelineBlock, EffectiveLocation> = {
+  SLEEPING: "HOME",
+  WAKE: "HOME",
+  BREAKFAST: "HOME",
+  MORNING: "SCHOOL",
+  DRINK_BREAK: "SCHOOL",
+  LUNCH: "SCHOOL",
+  AFTERNOON: "SCHOOL",
+  BUS: "BUS",
+  HOME_TIME: "HOME",
+  DINNER: "HOME",
+  WIND_DOWN: "HOME",
 };
 
 type TimelineItem = {
@@ -157,13 +278,13 @@ function formatTime(hour: number, minute: number) {
 }
 
 function TodayTimeline({
-  location,
-  onBlockSelect,
-  testBlock,
+  location: _location,
+  onItemSelect,
+  testTimelineItemId,
 }: {
   location: LocationKey;
-  onBlockSelect?: (block: TimelineBlock) => void;
-  testBlock?: TimelineBlock | null;
+  onItemSelect?: (itemId: string, block: TimelineBlock) => void;
+  testTimelineItemId?: string | null;
 }) {
   const now = new Date();
   const nowMin = minutesSinceMidnight(now);
@@ -172,13 +293,19 @@ function TodayTimeline({
   const items: TimelineItem[] = [
     { id: "wake", hour: 7, minute: 30, title: "Wake up", subtitle: "Start the day", icon: "🌅" },
     { id: "breakfast", hour: 8, minute: 0, title: "Breakfast", subtitle: "Food + drink", icon: "🍳" },
-    ...(location === "SCHOOL" && !isWeekend
-      ? [{ id: "school", hour: 9, minute: 0, title: "School", subtitle: "Class time", icon: "🎒" }]
+    ...(!isWeekend
+      ? [
+          { id: "busTo", hour: 8, minute: 15, title: "Bus to school", subtitle: "On the bus", icon: "🚌" },
+          { id: "school", hour: 9, minute: 0, title: "School", subtitle: "Class time", icon: "🎒" },
+        ]
       : [{ id: "play", hour: 10, minute: 0, title: "Play time", subtitle: "Activity", icon: "🧸" }]),
     { id: "drink", hour: 10, minute: 30, title: "Drink break", subtitle: "Hydration", icon: "🥤" },
     { id: "lunch", hour: 12, minute: 15, title: "Lunch", subtitle: "Food + drink", icon: "🥪" },
     { id: "mood", hour: 14, minute: 30, title: "Feelings check", subtitle: "Mood check‑in", icon: "🙂" },
     { id: "snack", hour: 15, minute: 45, title: "Snack", subtitle: "Small bite", icon: "🍎" },
+    ...(!isWeekend
+      ? [{ id: "busFrom", hour: 16, minute: 0, title: "Bus home", subtitle: "On the bus", icon: "🚌" }]
+      : []),
     { id: "home", hour: 16, minute: 30, title: "Home time", subtitle: "Transition", icon: "🏠" },
     { id: "dinner", hour: 18, minute: 0, title: "Dinner", subtitle: "Food + drink", icon: "🍽️" },
     { id: "winddown", hour: 19, minute: 45, title: "Wind down", subtitle: "Quiet activity", icon: "📺" },
@@ -239,7 +366,7 @@ function TodayTimeline({
           {items.map((it, idx) => {
             const state = stateFor(it, idx) as "past" | "now" | "next" | "upcoming";
             const blockForItem = TIMELINE_ITEM_TO_BLOCK[it.id];
-            const isTestSelected = onBlockSelect && testBlock && blockForItem === testBlock;
+            const isTestSelected = onItemSelect && testTimelineItemId === it.id;
             const dotClass =
               isTestSelected
                 ? "bg-amber-500 ring-2 ring-amber-300 ring-offset-1"
@@ -270,8 +397,8 @@ function TodayTimeline({
                 </div>
                 <button
                   type="button"
-                  onClick={() => blockForItem && onBlockSelect?.(blockForItem)}
-                  className={`flex-1 rounded-2xl border px-4 py-3 text-left transition-colors ${cardClass} ${onBlockSelect ? "cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/50" : ""}`}
+                  onClick={() => blockForItem && onItemSelect?.(it.id, blockForItem)}
+                  className={`flex-1 rounded-2xl border px-4 py-3 text-left transition-colors ${cardClass} ${onItemSelect ? "cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/50" : ""}`}
                   title={blockForItem ? `Preview ${BLOCK_LABELS[blockForItem]} options` : undefined}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -325,19 +452,34 @@ function foodArticle(label: string): string {
   return /[aeiou]/.test(first) ? "an" : "a";
 }
 
+/** Three emotions for wellbeing popup (morning/bed) and Feelings check. Scores match carer dashboard MOOD_CONFIG. */
 const MOOD_OPTIONS = [
   { score: 5, label: "Happy", icon: "🙂", speech: "I'm happy.", tone: "aac-tone-c" as const },
   { score: 2, label: "Sad", icon: "🙁", speech: "I'm sad.", tone: "aac-tone-b" as const },
   { score: 3, label: "Not sure", icon: "🤔", speech: "I feel funny.", tone: "aac-tone-a" as const },
 ] as const;
 
-export function SpeakPage({ location }: { location: LocationKey }) {
+export function SpeakPage({ location: manualLocation }: { location?: LocationKey }) {
+  const effectiveLocation = useMemo(
+    () => deriveEffectiveLocation(manualLocation),
+    [manualLocation]
+  );
   const block = useMemo(() => currentTimelineBlock(), []);
-  const [testBlock, setTestBlock] = useState<TimelineBlock | null>(null);
-  const displayBlock = testBlock ?? block;
+  const [testTimelineItemId, setTestTimelineItemId] = useState<string | null>(null);
+  const displayBlock = testTimelineItemId
+    ? (TIMELINE_ITEM_TO_BLOCK[testTimelineItemId] ?? block)
+    : block;
+  /** When previewing a block, use that block's location; otherwise use time-derived */
+  const displayLocation = testTimelineItemId ? LOCATION_FOR_BLOCK[displayBlock] : effectiveLocation;
   const [family, setFamily] = useState<PreferenceItem[]>([]);
+  const [schoolPeople, setSchoolPeople] = useState<PreferenceItem[]>([]);
   const [showPainModal, setShowPainModal] = useState(false);
   const [painTap, setPainTap] = useState<{ xPct: number; yPct: number } | null>(null);
+  const [painSelectedArea, setPainSelectedArea] = useState<{
+    bodyArea: string;
+    bodyPartLabel: string;
+    icon: string;
+  } | null>(null);
   const [whoToAsk, setWhoToAsk] = useState<{ option: QuickSpeakOption; speech: string } | null>(null);
   const [showWellbeingPopup, setShowWellbeingPopup] = useState(() => {
     const slot = isInWellbeingSlot();
@@ -348,6 +490,8 @@ export function SpeakPage({ location }: { location: LocationKey }) {
   const [foods, setFoods] = useState<PreferenceItem[]>([]);
   const [drinks, setDrinks] = useState<PreferenceItem[]>([]);
   const [activities, setActivities] = useState<PreferenceItem[]>([]);
+  const [busStaff, setBusStaff] = useState<PreferenceItem[]>([]);
+  const [maxOptions, setMaxOptions] = useState(3);
 
   const speak = async (text: string) => {
     await speakText(text);
@@ -363,12 +507,20 @@ export function SpeakPage({ location }: { location: LocationKey }) {
     if (opt.followUp) setFollowUpPanel(opt.followUp);
   };
 
+  const peopleForContext = displayLocation === "HOME" ? family : displayLocation === "SCHOOL" ? schoolPeople : displayLocation === "BUS" ? busStaff : [];
   const handleOptionTap = (opt: QuickSpeakOption) => {
-    const shouldAskWho = opt.askWho && location === "HOME" && family.length > 0;
+    if (opt.moodScore != null) {
+      void wellbeingApi.recordMood(opt.moodScore);
+      void speak(opt.speech);
+      interactionsApi.record({ location: displayLocation, promptType: opt.label, selectedText: opt.speech });
+      return;
+    }
+    const shouldAskWho = opt.askWho && peopleForContext.length > 0;
     if (shouldAskWho) {
       setWhoToAsk({ option: opt, speech: opt.speech });
     } else {
       void speak(opt.speech).then(() => openFollowUpIfNeeded(opt));
+      interactionsApi.record({ location: displayLocation, promptType: opt.label, selectedText: opt.speech });
     }
   };
 
@@ -376,69 +528,94 @@ export function SpeakPage({ location }: { location: LocationKey }) {
     const msg = `${person.label}, ${baseSpeech.toLowerCase()}`;
     void speak(msg).then(() => openFollowUpIfNeeded(opt));
     setWhoToAsk(null);
+    interactionsApi.record({ location: displayLocation, promptType: opt.label, selectedText: msg });
   };
 
   const classifyPainTap = (x: number, y: number) => {
-    // x,y are normalized 0..1 within the image container.
-    // Heuristics are intentionally simple so a child can tap anywhere.
-    // We return a stable `bodyArea` string for analytics + a natural `speech` phrase.
-    const isLeft = x < 0.5;
-    const isOuter = x <= 0.28 || x >= 0.72;
+    // x,y are normalized 0..1 within the full tap area.
+    // Figure: ~30% width centered (35%–65%), ~60% height centered (20%–80%).
+    // Remap to body coordinates 0–1.
+    const bodyX = Math.max(0, Math.min(1, (x - 0.35) / 0.30));
+    const bodyY = Math.max(0, Math.min(1, (y - 0.20) / 0.60));
+    const isLeft = bodyX < 0.5;
+    const isOuter = bodyX <= 0.32 || bodyX >= 0.68; // Arms at sides of figure
 
-    // Head
-    if (y < 0.22) {
-      return { bodyArea: "HEAD", speech: "My head hurts." };
+    // Head (top ~20% of figure height)
+    if (bodyY < 0.20) {
+      return { bodyArea: "HEAD", bodyPartLabel: "head", icon: "🤕" };
     }
 
-    // Arms / elbows / hands (outer columns)
+    // Arms / elbows / hands
     if (isOuter) {
       const side = isLeft ? "LEFT" : "RIGHT";
-
-      if (y < 0.45) {
-        return { bodyArea: `${side}_ARM`, speech: `My ${isLeft ? "left" : "right"} arm hurts.` };
+      if (bodyY < 0.40) {
+        return { bodyArea: `${side}_ARM`, bodyPartLabel: `${isLeft ? "left" : "right"} arm`, icon: "💪" };
       }
-      if (y < 0.60) {
+      if (bodyY < 0.55) {
         return {
           bodyArea: `${side}_ELBOW`,
-          speech: `My ${isLeft ? "left" : "right"} elbow hurts.`,
+          bodyPartLabel: `${isLeft ? "left" : "right"} elbow`,
+          icon: "🦾",
         };
       }
-      if (y < 0.72) {
+      if (bodyY < 0.75) {
         return {
           bodyArea: `${side}_HAND`,
-          speech: `My ${isLeft ? "left" : "right"} hand hurts.`,
+          bodyPartLabel: `${isLeft ? "left" : "right"} hand`,
+          icon: "✋",
         };
       }
     }
 
-    // Chest / tummy / legs / knees (center column)
-    if (y < 0.42) {
-      return { bodyArea: "CHEST", speech: "My chest hurts." };
+    // Torso and legs (center of figure)
+    if (bodyY < 0.38) {
+      return { bodyArea: "CHEST", bodyPartLabel: "chest", icon: "🫀" };
     }
-    if (y < 0.64) {
-      return { bodyArea: "TUMMY", speech: "My tummy hurts." };
+    if (bodyY < 0.58) {
+      return { bodyArea: "TUMMY", bodyPartLabel: "tummy", icon: "🤢" };
     }
-    if (y < 0.84) {
-      return { bodyArea: isLeft ? "LEFT_KNEE" : "RIGHT_KNEE", speech: "My knee hurts." };
+    if (bodyY < 0.85) {
+      return {
+        bodyArea: isLeft ? "LEFT_KNEE" : "RIGHT_KNEE",
+        bodyPartLabel: `${isLeft ? "left" : "right"} knee`,
+        icon: "🦵",
+      };
     }
-    return { bodyArea: isLeft ? "LEFT_LEG" : "RIGHT_LEG", speech: "My leg hurts." };
+    return {
+      bodyArea: isLeft ? "LEFT_LEG" : "RIGHT_LEG",
+      bodyPartLabel: `${isLeft ? "left" : "right"} leg`,
+      icon: "🦿",
+    };
+  };
+
+  const painSpeechForSeverity = (bodyPartLabel: string, severity: number) => {
+    if (severity <= 3) return `My ${bodyPartLabel} is slightly sore.`;
+    if (severity <= 6) return `My ${bodyPartLabel} hurts.`;
+    return `My ${bodyPartLabel} hurts a lot.`;
   };
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const [fam, foodList, drinkList, actList] = await Promise.all([
-          preferencesApi.list("FAMILY_MEMBER"),
-          preferencesApi.list("FOOD"),
-          preferencesApi.list("DRINK"),
-          preferencesApi.list("ACTIVITY"),
-        ]);
+        const [homePeople, schoolPeopleResp, busPeopleResp, foodList, drinkList, actList, profileResp] =
+          await Promise.all([
+            preferencesApi.whoToAsk("HOME"),
+            preferencesApi.whoToAsk("SCHOOL"),
+            preferencesApi.whoToAsk("BUS"),
+            preferencesApi.list("FOOD"),
+            preferencesApi.list("DRINK"),
+            preferencesApi.list("ACTIVITY"),
+            profileApi.get().catch(() => null),
+          ]);
         if (!cancelled) {
-          setFamily(fam);
+          setFamily(homePeople);
+          setSchoolPeople(schoolPeopleResp);
+          setBusStaff(busPeopleResp);
           setFoods(foodList);
           setDrinks(drinkList);
           setActivities(actList);
+          if (profileResp?.maxOptions) setMaxOptions(profileResp.maxOptions);
         }
       } catch {
         // ignore
@@ -450,30 +627,39 @@ export function SpeakPage({ location }: { location: LocationKey }) {
     };
   }, []);
 
-  const quickSpeakOptions = useMemo(
-    () => optionsForBlock(displayBlock, location),
-    [displayBlock, location]
-  );
+  const quickSpeakOptions = useMemo(() => {
+    if (testTimelineItemId === "mood") {
+      return MOOD_OPTIONS.map((m) => ({
+        label: m.label,
+        speech: m.speech,
+        icon: m.icon,
+        tone: m.tone,
+        moodScore: m.score,
+      })) as QuickSpeakOption[];
+    }
+    return optionsForBlock(displayBlock, displayLocation, maxOptions);
+  }, [testTimelineItemId, displayBlock, displayLocation, maxOptions]);
 
+  const scopeForLocation = displayLocation === "SCHOOL" || displayLocation === "BUS" ? "SCHOOL" : "HOME";
   const filteredFoods = useMemo(
-    () => foods.filter((f) => f.scope === location || f.scope === "BOTH"),
-    [foods, location]
+    () => foods.filter((f) => f.scope === scopeForLocation || f.scope === "BOTH"),
+    [foods, scopeForLocation]
   );
   const filteredDrinks = useMemo(
-    () => drinks.filter((d) => d.scope === location || d.scope === "BOTH"),
-    [drinks, location]
+    () => drinks.filter((d) => d.scope === scopeForLocation || d.scope === "BOTH"),
+    [drinks, scopeForLocation]
   );
   const filteredActivities = useMemo(
-    () => activities.filter((a) => a.scope === location || a.scope === "BOTH"),
-    [activities, location]
+    () => activities.filter((a) => a.scope === scopeForLocation || a.scope === "BOTH"),
+    [activities, scopeForLocation]
   );
   const filteredTvShows = useMemo(
     () => filteredActivities.filter((a) => a.category === "TV_SHOW"),
     [filteredActivities]
   );
 
-  const handleBlockSelect = (b: TimelineBlock) => {
-    setTestBlock((prev) => (prev === b ? null : b));
+  const handleItemSelect = (itemId: string) => {
+    setTestTimelineItemId((prev) => (prev === itemId ? null : itemId));
   };
   const timeLabel = useMemo(
     () =>
@@ -488,9 +674,9 @@ export function SpeakPage({ location }: { location: LocationKey }) {
     <div className="w-full">
       <div className="grid gap-6 md:grid-cols-[320px_1fr] md:items-start">
         <TodayTimeline
-          location={location}
-          onBlockSelect={handleBlockSelect}
-          testBlock={testBlock}
+          location={displayLocation === "SCHOOL" || displayLocation === "BUS" ? "SCHOOL" : displayLocation === "OUT" ? "OUT" : "HOME"}
+          onItemSelect={handleItemSelect}
+          testTimelineItemId={testTimelineItemId}
         />
 
         <main className="space-y-6">
@@ -507,21 +693,29 @@ export function SpeakPage({ location }: { location: LocationKey }) {
             </div>
             <div className="text-xs sm:text-sm text-slate-600 flex flex-col items-end gap-2">
               <span className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1 font-semibold">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-xs">
-                  ●
-                </span>
-                {location === "HOME"
+                {displayLocation === "HOME" ? (
+                  <Home className="h-5 w-5 text-indigo-600" aria-hidden />
+                ) : displayLocation === "SCHOOL" ? (
+                  <GraduationCap className="h-5 w-5 text-indigo-600" aria-hidden />
+                ) : displayLocation === "BUS" ? (
+                  <Bus className="h-5 w-5 text-indigo-600" aria-hidden />
+                ) : (
+                  <MapPin className="h-5 w-5 text-indigo-600" aria-hidden />
+                )}
+                {displayLocation === "HOME"
                   ? "At home"
-                  : location === "SCHOOL"
+                  : displayLocation === "SCHOOL"
                     ? "At school"
-                    : "Out & about"}
+                    : displayLocation === "BUS"
+                      ? "On bus"
+                      : "Out & about"}
               </span>
               <span className="text-[11px] text-slate-500">
-                It&apos;s {timeLabel} — {BLOCK_LABELS[displayBlock].toLowerCase()}
-                {testBlock && (
+                It&apos;s {timeLabel} — {testTimelineItemId === "mood" ? "Feelings check" : BLOCK_LABELS[displayBlock].toLowerCase()}
+                {testTimelineItemId && (
                   <button
                     type="button"
-                    onClick={() => setTestBlock(null)}
+                    onClick={() => setTestTimelineItemId(null)}
                     className="ml-1 text-amber-600 hover:text-amber-700 underline"
                   >
                     (reset)
@@ -530,7 +724,11 @@ export function SpeakPage({ location }: { location: LocationKey }) {
               </span>
               <button
                 type="button"
-                onClick={() => setShowPainModal(true)}
+                onClick={() => {
+                  setPainSelectedArea(null);
+                  setPainTap(null);
+                  setShowPainModal(true);
+                }}
                 className="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-rose-700"
               >
                 <span aria-hidden="true">⚠️</span> I feel pain / Help
@@ -540,23 +738,25 @@ export function SpeakPage({ location }: { location: LocationKey }) {
 
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-slate-800">
-              {BLOCK_LABELS[displayBlock]}
-              {testBlock && (
+              {testTimelineItemId === "mood" ? "Feelings check" : BLOCK_LABELS[displayBlock]}
+              {testTimelineItemId && (
                 <span className="ml-2 text-amber-600 text-xs font-normal">
                   (preview)
                 </span>
               )}
             </h2>
             <p className="text-xs text-slate-600">
-              Quick options for this part of the day.
-              {testBlock
+              {testTimelineItemId === "mood"
+                ? "How are you feeling? Tap to speak and record."
+                : "Quick options for this part of the day."}
+              {testTimelineItemId
                 ? " Tap another timeline item to preview, or reset to actual time."
                 : " Tap any timeline item to preview its options."}
             </p>
             <div className="grid gap-4 sm:grid-cols-3">
-              {quickSpeakOptions.map((opt) => (
+              {quickSpeakOptions.map((opt, i) => (
                 <button
-                  key={opt.label}
+                  key={`${opt.label}-${opt.speech}-${i}`}
                   type="button"
                   onClick={() => handleOptionTap(opt)}
                   className={`aac-tile ${opt.tone}`}
@@ -573,22 +773,34 @@ export function SpeakPage({ location }: { location: LocationKey }) {
             </div>
           </section>
 
-          {family.length > 0 && location === "HOME" && (
+          {peopleForContext.length > 0 && (
             <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-slate-800">Who is at home?</h2>
+              <h2 className="text-sm font-semibold text-slate-800">
+                {displayLocation === "HOME"
+                  ? "Who is at home?"
+                  : displayLocation === "SCHOOL"
+                    ? "Who is at school?"
+                    : displayLocation === "BUS"
+                      ? "People on bus"
+                      : "Who is here?"}
+              </h2>
               <p className="text-xs text-slate-600">
                 For some needs above, you can pick who to ask after tapping.
               </p>
-              <div className="flex flex-wrap gap-2">
-                {family.map((person) => (
+              <div className="flex flex-wrap gap-3">
+                {peopleForContext.map((person) => (
                   <span
                     key={person.id}
-                    className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/90 px-3 py-1 text-xs font-semibold text-slate-800"
+                    className="inline-flex items-center gap-3 rounded-2xl border-2 border-indigo-100 bg-white/90 px-4 py-2"
                   >
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-pink-100 text-pink-700 text-xs">
-                      {person.label.charAt(0).toUpperCase()}
+                    <span className="inline-flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-pink-100">
+                      {person.imageUrl ? (
+                        <img src={person.imageUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-xl font-bold text-pink-700">{person.label.charAt(0).toUpperCase()}</span>
+                      )}
                     </span>
-                    {person.label}
+                    <span className="text-sm font-bold text-slate-800">{person.label}</span>
                   </span>
                 ))}
               </div>
@@ -624,15 +836,28 @@ export function SpeakPage({ location }: { location: LocationKey }) {
                         : followUpPanel === "TV"
                           ? `I would like to watch ${label}, please.`
                           : `I would like to ${lower}, please.`;
+                  const fallbackIcon = !item.imageUrl ? fallbackIconForLabel(label, followUpPanel) : null;
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => void speak(speech)}
-                      className="aac-tile flex items-center gap-2 py-3 px-4 rounded-2xl border-2 transition-transform active:scale-95 hover:scale-[1.02]"
+                      onClick={() => {
+                        void speak(speech);
+                        interactionsApi.record({ location: displayLocation, promptType: followUpPanel, selectedText: speech });
+                      }}
+                      className="aac-tile flex items-center gap-4 py-4 px-5 rounded-2xl border-2 transition-transform active:scale-95 hover:scale-[1.02]"
                       aria-label={speech}
                     >
-                      <span className="font-bold text-sm">{label}</span>
+                      {item.imageUrl ? (
+                        <span className="h-20 w-20 shrink-0 overflow-hidden rounded-xl">
+                          <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+                        </span>
+                      ) : fallbackIcon ? (
+                        <span className="h-20 w-20 shrink-0 flex items-center justify-center rounded-xl bg-indigo-50">
+                          <Icon icon={fallbackIcon} width={48} height={48} aria-hidden />
+                        </span>
+                      ) : null}
+                      <span className="font-bold text-base">{label}</span>
                     </button>
                   );
                 })}
@@ -665,22 +890,34 @@ export function SpeakPage({ location }: { location: LocationKey }) {
             >
               Close
             </button>
-            <h2 className="mb-2 text-lg font-bold text-slate-900">Who do you want to ask?</h2>
+            <h2 className="mb-2 text-lg font-bold text-slate-900">
+              {displayLocation === "HOME"
+                ? "Who do you want to ask?"
+                : displayLocation === "SCHOOL"
+                  ? "Who at school?"
+                  : displayLocation === "BUS"
+                    ? "Who on the bus?"
+                    : "Who do you want to tell?"}
+            </h2>
             <p className="mb-4 text-sm text-slate-600">
               Tap who you&apos;d like to ask for: {whoToAsk.option.label}
             </p>
-            <div className="flex flex-wrap gap-2">
-              {family.map((person) => (
+            <div className="flex flex-wrap gap-4">
+              {peopleForContext.map((person) => (
                 <button
                   key={person.id}
                   type="button"
                   onClick={() => handleWhoSelected(person, whoToAsk.speech, whoToAsk.option)}
-                  className="inline-flex items-center gap-2 rounded-full border-2 border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-slate-800 hover:border-indigo-300 hover:bg-indigo-100"
+                  className="flex flex-col items-center gap-2 rounded-2xl border-2 border-indigo-200 bg-indigo-50 p-4 min-w-[120px] hover:border-indigo-300 hover:bg-indigo-100 active:scale-[0.98]"
                 >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-pink-100 text-pink-700">
-                    {person.label.charAt(0).toUpperCase()}
+                  <span className="inline-flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full bg-pink-100 ring-2 ring-indigo-200/50">
+                    {person.imageUrl ? (
+                      <img src={person.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-3xl font-black text-pink-700">{person.label.charAt(0).toUpperCase()}</span>
+                    )}
                   </span>
-                  {person.label}
+                  <span className="text-base font-bold text-slate-800">{person.label}</span>
                 </button>
               ))}
             </div>
@@ -691,6 +928,7 @@ export function SpeakPage({ location }: { location: LocationKey }) {
               onClick={() => {
                 void speak(whoToAsk.speech).then(() => openFollowUpIfNeeded(whoToAsk.option));
                 setWhoToAsk(null);
+                interactionsApi.record({ location: displayLocation, promptType: whoToAsk.option.label, selectedText: whoToAsk.speech });
               }}
             >
               Just say it (no name)
@@ -723,7 +961,7 @@ export function SpeakPage({ location }: { location: LocationKey }) {
                   <span className="text-3xl" aria-hidden="true">
                     {m.icon}
                   </span>
-                  <span className="mt-2 text-sm font-bold">{m.label}</span>
+                  <span className="mt-2 text-sm font-bold text-slate-800">{m.label}</span>
                 </Button>
               ))}
             </div>
@@ -740,84 +978,162 @@ export function SpeakPage({ location }: { location: LocationKey }) {
 
       {showPainModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative max-w-md w-full rounded-3xl bg-white p-6 shadow-2xl">
+          <div className="relative max-w-lg w-full rounded-3xl bg-white p-6 shadow-2xl">
             <button
               type="button"
-              onClick={() => setShowPainModal(false)}
+              onClick={() => {
+                setShowPainModal(false);
+                setPainSelectedArea(null);
+                setPainTap(null);
+              }}
               className="absolute right-4 top-4 text-sm text-slate-500 hover:text-slate-700"
             >
               Close
             </button>
-            <h2 className="mb-2 text-lg font-bold text-slate-900">Where does it hurt?</h2>
-            <p className="mb-4 text-sm text-slate-600">
-              Tap on the picture where it hurts, or press &quot;Help now&quot;.
-            </p>
 
-            <div className="mx-auto flex w-full max-w-[300px] items-center justify-center">
-              <div
-                className="relative w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
-                onClick={async (e) => {
-                  const el = e.currentTarget;
-                  const rect = el.getBoundingClientRect();
-                  const x = (e.clientX - rect.left) / rect.width;
-                  const y = (e.clientY - rect.top) / rect.height;
+            {!painSelectedArea ? (
+              <>
+                <h2 className="mb-2 text-lg font-bold text-slate-900">Where does it hurt?</h2>
+                <p className="mb-4 text-sm text-slate-600">
+                  Tap on the picture where it hurts, or press &quot;Help now&quot;.
+                </p>
 
-                  const xPct = Math.max(0, Math.min(100, x * 100));
-                  const yPct = Math.max(0, Math.min(100, y * 100));
-                  setPainTap({ xPct, yPct });
-
-                  const { bodyArea, speech } = classifyPainTap(x, y);
-                  await wellbeingApi.recordPain(
-                    bodyArea,
-                    5,
-                    `tap=${x.toFixed(2)},${y.toFixed(2)} area=${bodyArea}`
-                  );
-                  await speak(speech);
-                  setShowPainModal(false);
-                }}
-                role="button"
-                aria-label="Tap the body where it hurts"
-              >
-                <img
-                  src="https://media.istockphoto.com/id/1331743543/vector/cute-beautiful-little-girl-is-standing-and-smiling-funny-child-with-pigtails-in-shorts-and-a.jpg?s=612x612&w=0&k=20&c=9jAF0jgISBhsdEOQsIOyhNr2jugxHCfGXNI8VZPc6cQ="
-                  alt="Cartoon body"
-                  className="block w-full select-none"
-                  draggable={false}
-                />
-                {painTap && (
+                <div className="mx-auto flex w-full max-w-[480px] min-h-[420px] items-center justify-center">
                   <div
-                    className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
-                    style={{
-                      left: `${painTap.xPct}%`,
-                      top: `${painTap.yPct}%`,
-                      width: 22,
-                      height: 22,
-                      background: "rgba(244,63,94,0.25)",
-                      border: "2px solid rgba(244,63,94,0.9)",
-                      boxShadow: "0 0 0 6px rgba(244,63,94,0.12)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                )}
-              </div>
-            </div>
+                    className="relative w-full min-h-[400px] overflow-hidden rounded-3xl border-2 border-slate-200 bg-white shadow-sm aspect-square"
+                    onClick={(e) => {
+                      const el = e.currentTarget;
+                      const rect = el.getBoundingClientRect();
+                      const x = (e.clientX - rect.left) / rect.width;
+                      const y = (e.clientY - rect.top) / rect.height;
 
-            <div className="mt-5 flex flex-wrap justify-between gap-3">
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={async () => {
-                  await wellbeingApi.recordPain("UNKNOWN", 7, "Help now button");
-                  await speak("I need help now.");
-                  setShowPainModal(false);
-                }}
-              >
-                Help now
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setShowPainModal(false)}>
-                Done
-              </Button>
-            </div>
+                      const xPct = Math.max(0, Math.min(100, x * 100));
+                      const yPct = Math.max(0, Math.min(100, y * 100));
+                      const result = classifyPainTap(x, y);
+                      setPainTap({ xPct, yPct });
+                      setPainSelectedArea(result);
+                      void speak(`My ${result.bodyPartLabel} hurts.`);
+                    }}
+                    role="button"
+                    aria-label="Tap the body where it hurts"
+                  >
+                    <img
+                      src="https://media.istockphoto.com/id/1331743543/vector/cute-beautiful-little-girl-is-standing-and-smiling-funny-child-with-pigtails-in-shorts-and-a.jpg?s=612x612&w=0&k=20&c=9jAF0jgISBhsdEOQsIOyhNr2jugxHCfGXNI8VZPc6cQ="
+                      alt="Tap where it hurts"
+                      className="block w-full h-full object-cover select-none"
+                      draggable={false}
+                    />
+                    {painTap && (
+                      <div
+                        className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
+                        style={{
+                          left: `${painTap.xPct}%`,
+                          top: `${painTap.yPct}%`,
+                          width: 22,
+                          height: 22,
+                          background: "rgba(244,63,94,0.25)",
+                          border: "2px solid rgba(244,63,94,0.9)",
+                          boxShadow: "0 0 0 6px rgba(244,63,94,0.12)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-wrap justify-between gap-3">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={async () => {
+                      await wellbeingApi.recordPain("UNKNOWN", 8, "Help now button");
+                      await speak("I need help now.");
+                      setShowPainModal(false);
+                      setPainSelectedArea(null);
+                      setPainTap(null);
+                    }}
+                  >
+                    Help now
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowPainModal(false);
+                      setPainSelectedArea(null);
+                      setPainTap(null);
+                    }}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-2xl" aria-hidden="true">
+                    {painSelectedArea.icon}
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    How much does your {painSelectedArea.bodyPartLabel} hurt?
+                  </h2>
+                </div>
+                <p className="mb-4 text-sm text-slate-600">
+                  Tap on the bar. Green = slightly sore, orange = hurts, red = hurts a lot.
+                </p>
+
+                <div
+                  className="relative h-14 w-full rounded-2xl cursor-pointer overflow-hidden border-2 border-slate-200 shadow-inner"
+                  style={{
+                    background:
+                      "linear-gradient(to right, #22c55e 0%, #84cc16 25%, #eab308 50%, #f97316 75%, #ef4444 100%)",
+                  }}
+                  onClick={async (e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    const severity = Math.max(1, Math.min(10, Math.round(1 + x * 9)));
+                    const speech = painSpeechForSeverity(painSelectedArea.bodyPartLabel, severity);
+
+                    await wellbeingApi.recordPain(
+                      painSelectedArea.bodyArea,
+                      severity,
+                      `severity=${severity} from scale`
+                    );
+                    await speak(speech);
+                    setShowPainModal(false);
+                    setPainSelectedArea(null);
+                    setPainTap(null);
+                  }}
+                  role="button"
+                  aria-label="Tap to select pain severity: left = mild (1–3), middle = okay (4–6), right = severe (7–10)"
+                >
+                  <div className="absolute inset-0 flex items-center justify-between px-4 pointer-events-none">
+                    <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800 drop-shadow-sm">
+                      <span aria-hidden>😊</span> 1–3 Mild
+                    </span>
+                    <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800 drop-shadow-sm">
+                      <span aria-hidden>😐</span> 4–6 Okay
+                    </span>
+                    <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800 drop-shadow-sm">
+                      <span aria-hidden>😣</span> 7–10 Severe
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap justify-between gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setPainSelectedArea(null);
+                      setPainTap(null);
+                    }}
+                  >
+                    Change location
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

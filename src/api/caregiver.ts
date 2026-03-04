@@ -11,7 +11,7 @@ const handleJson = async <T>(res: Response): Promise<T> => {
 export const caregiverApi = {
   async getDashboard(period?: string): Promise<CaregiverDashboard> {
     const qs = period ? `?period=${encodeURIComponent(period)}` : "";
-    const res = await fetch(`/api/carer/dashboard${qs}`);
+    const res = await fetch(`/api/carer/dashboard${qs}`, { credentials: "include" });
     return handleJson<CaregiverDashboard>(res);
   },
 };

@@ -7,12 +7,14 @@ vi.mock("../api/tts", () => ({
   speakText: (...args: unknown[]) => mockSpeakText(...args),
 }));
 
-const { mockPrefList } = vi.hoisted(() => ({
+const { mockPrefList, mockPrefWhoToAsk } = vi.hoisted(() => ({
   mockPrefList: vi.fn().mockResolvedValue([]),
+  mockPrefWhoToAsk: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../api/preferences", () => ({
   preferencesApi: {
     list: mockPrefList,
+    whoToAsk: mockPrefWhoToAsk,
   },
 }));
 
@@ -21,6 +23,10 @@ vi.mock("../api/wellbeing", () => ({
     recordMood: vi.fn().mockResolvedValue(undefined),
     recordPain: vi.fn().mockResolvedValue(undefined),
   },
+}));
+
+vi.mock("../api/profile", () => ({
+  profileApi: { get: vi.fn().mockResolvedValue({ maxOptions: 3 }) },
 }));
 
 beforeEach(() => {
@@ -94,14 +100,14 @@ test("pain modal opens and help now works", async () => {
 
 test("who to ask modal: just say it skips name", async () => {
   const user = userEvent.setup();
-  mockPrefList.mockImplementation(async (kind: string) => {
-    if (kind === "FAMILY_MEMBER") return [{ id: "1", label: "Mum", scope: "HOME", kind: "FAMILY_MEMBER" }];
+  mockPrefWhoToAsk.mockImplementation(async (location: string) => {
+    if (location === "HOME") return [{ id: "1", label: "Mum", scope: "HOME", kind: "FAMILY_MEMBER" }];
     return [];
   });
 
   render(<SpeakPage location="HOME" />);
 
-  await waitFor(() => expect(mockPrefList).toHaveBeenCalled());
+  await waitFor(() => expect(mockPrefWhoToAsk).toHaveBeenCalled());
 
   const breakfastItems = await screen.findAllByTitle(/preview breakfast options/i);
   await user.click(breakfastItems[0]!);
@@ -118,14 +124,14 @@ test("who to ask modal: just say it skips name", async () => {
 
 test("who to ask modal when family members and askWho option", async () => {
   const user = userEvent.setup();
-  mockPrefList.mockImplementation(async (kind: string) => {
-    if (kind === "FAMILY_MEMBER") return [{ id: "1", label: "Mum", scope: "HOME", kind: "FAMILY_MEMBER" }];
+  mockPrefWhoToAsk.mockImplementation(async (location: string) => {
+    if (location === "HOME") return [{ id: "1", label: "Mum", scope: "HOME", kind: "FAMILY_MEMBER" }];
     return [];
   });
 
   render(<SpeakPage location="HOME" />);
 
-  await waitFor(() => expect(mockPrefList).toHaveBeenCalled());
+  await waitFor(() => expect(mockPrefWhoToAsk).toHaveBeenCalled());
 
   const breakfastItems = await screen.findAllByTitle(/preview breakfast options/i);
   await user.click(breakfastItems[0]!);

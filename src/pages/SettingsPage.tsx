@@ -11,11 +11,15 @@ const ROLE_LABELS: Record<Role, string> = {
   PARENT: "Parent",
   CARER: "Carer",
   CLINICIAN: "Clinician",
+  SCHOOL_ADMIN: "School Admin",
+  SCHOOL_TEACHER: "School Teacher",
 };
 
 export function SettingsPage() {
   const auth = useAuth();
-  const [role, setRole] = useState<Role>("PARENT");
+  const [signInMode, setSignInMode] = useState<"email" | "pin">("email");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"foods" | "activities" | "family" | "school">(
@@ -30,6 +34,7 @@ export function SettingsPage() {
   const [familyItems, setFamilyItems] = useState<PreferenceItem[]>([]);
   const [peerItems, setPeerItems] = useState<PreferenceItem[]>([]);
   const [teacherItems, setTeacherItems] = useState<PreferenceItem[]>([]);
+  const [busStaffItems, setBusStaffItems] = useState<PreferenceItem[]>([]);
   const [subjectItems, setSubjectItems] = useState<PreferenceItem[]>([]);
   const [prefsLoading, setPrefsLoading] = useState(false);
   const [prefsError, setPrefsError] = useState<string | null>(null);
@@ -43,9 +48,21 @@ export function SettingsPage() {
   const [newFamilyLabel, setNewFamilyLabel] = useState("");
   const [newPeerLabel, setNewPeerLabel] = useState("");
   const [newTeacherLabel, setNewTeacherLabel] = useState("");
+  const [newBusStaffLabel, setNewBusStaffLabel] = useState("");
   const [newSubjectLabel, setNewSubjectLabel] = useState("");
 
   useEffect(() => {
+    if (auth.status !== "authenticated") return;
+    const r = auth.role;
+    const loadFoodsAndActivities =
+      r === "PARENT" || r === "CLINICIAN" || r === "CARER";
+    const loadFamily = r === "PARENT" || r === "CLINICIAN";
+    const loadSchool =
+      r === "PARENT" ||
+      r === "CLINICIAN" ||
+      r === "SCHOOL_ADMIN" ||
+      r === "SCHOOL_TEACHER";
+
     let cancelled = false;
     const load = async () => {
       setProfileError(null);
@@ -53,25 +70,63 @@ export function SettingsPage() {
       setProfileLoading(true);
       setPrefsLoading(true);
       try {
-        const [p, foods, drinks, activities, family, peers, teachers, subjects] = await Promise.all([
-          profileApi.get(),
-          preferencesApi.list("FOOD"),
-          preferencesApi.list("DRINK"),
-          preferencesApi.list("ACTIVITY"),
-          preferencesApi.list("FAMILY_MEMBER"),
-          preferencesApi.list("SCHOOL_PEER"),
-          preferencesApi.list("TEACHER"),
-          preferencesApi.list("SUBJECT"),
-        ]);
-        if (!cancelled) {
-          setProfile(p);
-          setFoodItems(foods);
-          setDrinkItems(drinks);
-          setActivityItems(activities);
-          setFamilyItems(family);
-          setPeerItems(peers);
-          setTeacherItems(teachers);
-          setSubjectItems(subjects);
+        const fetches: Promise<unknown>[] = [profileApi.get()];
+        if (loadFoodsAndActivities) {
+          fetches.push(
+            preferencesApi.list("FOOD"),
+            preferencesApi.list("DRINK"),
+            preferencesApi.list("ACTIVITY")
+          );
+        }
+        if (loadFamily) {
+          fetches.push(preferencesApi.list("FAMILY_MEMBER"));
+        }
+        if (loadSchool) {
+          fetches.push(
+            preferencesApi.list("SCHOOL_PEER"),
+            preferencesApi.list("TEACHER"),
+            preferencesApi.list("BUS_STAFF"),
+            preferencesApi.list("SUBJECT")
+          );
+        }
+
+        const results = await Promise.all(fetches);
+        let idx = 0;
+        const p = results[idx++] as Awaited<ReturnType<typeof profileApi.get>>;
+        if (!cancelled) setProfile(p);
+
+        if (loadFoodsAndActivities) {
+          if (!cancelled) {
+            setFoodItems(results[idx++] as PreferenceItem[]);
+            setDrinkItems(results[idx++] as PreferenceItem[]);
+            setActivityItems(results[idx++] as PreferenceItem[]);
+          } else idx += 3;
+        }
+        if (loadFamily) {
+          if (!cancelled) setFamilyItems(results[idx++] as PreferenceItem[]);
+          else idx++;
+        }
+        if (loadSchool) {
+          if (!cancelled) {
+            setPeerItems(results[idx++] as PreferenceItem[]);
+            setTeacherItems(results[idx++] as PreferenceItem[]);
+            setBusStaffItems(results[idx++] as PreferenceItem[]);
+            setSubjectItems(results[idx++] as PreferenceItem[]);
+          } else idx += 4;
+        }
+        if (!loadFoodsAndActivities) {
+          if (!cancelled) {
+            setFoodItems([]);
+            setDrinkItems([]);
+            setActivityItems([]);
+          }
+        }
+        if (!loadFamily && !cancelled) setFamilyItems([]);
+        if (!loadSchool && !cancelled) {
+          setPeerItems([]);
+          setTeacherItems([]);
+          setBusStaffItems([]);
+          setSubjectItems([]);
         }
       } catch (err) {
         if (!cancelled) {
@@ -93,14 +148,41 @@ export function SettingsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [auth.status, auth.role]);
+
+  const canEditProfile = auth.role === "PARENT" || auth.role === "CLINICIAN";
+  const canEditFoodsAndActivities =
+    auth.role === "PARENT" || auth.role === "CLINICIAN" || auth.role === "CARER";
+  const canEditFamily = auth.role === "PARENT" || auth.role === "CLINICIAN";
+  const canEditSchool =
+    auth.role === "PARENT" ||
+    auth.role === "CLINICIAN" ||
+    auth.role === "SCHOOL_ADMIN" ||
+    auth.role === "SCHOOL_TEACHER";
+
+  const visibleTabs = [
+    ...(canEditFoodsAndActivities ? (["foods", "activities"] as const) : []),
+    ...(canEditFamily ? (["family"] as const) : []),
+    ...(canEditSchool ? (["school"] as const) : []),
+  ];
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.includes(activeTab)) {
+      setActiveTab(visibleTabs[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when role changes
+  }, [auth.role]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
     try {
-      await auth.login(role, pin);
-      setPin("");
+      if (signInMode === "email") {
+        await auth.loginWithEmail(email, password);
+        setPassword("");
+      } else {
+        await auth.loginWithPin(pin);
+        setPin("");
+      }
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : "Login failed");
     }
@@ -112,10 +194,6 @@ export function SettingsPage() {
   };
 
   const effectiveError = localError ?? auth.error;
-
-  const canEditAll =
-    auth.role === "PARENT" || auth.role === "CLINICIAN";
-  const canEditSchoolOnly = auth.role === "CARER";
 
   const makeUpdatePayload = (): UpdateUserProfileRequest | null => {
     if (!profile) return null;
@@ -168,7 +246,11 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-1">
+      <header
+        className="space-y-1"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <p className="text-sm font-semibold tracking-wide text-indigo-600 uppercase">
           Settings
         </p>
@@ -200,40 +282,77 @@ export function SettingsPage() {
           </div>
         ) : (
           <form onSubmit={handleLogin} className="space-y-4 max-w-md">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">
-                Role
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
-                  className="mt-1 w-full aac-input px-3 py-2 text-base"
-                >
-                  <option value="PARENT">Parent</option>
-                  <option value="CARER">Carer</option>
-                  <option value="CLINICIAN">Clinician</option>
-                </select>
-              </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSignInMode("email")}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+                  signInMode === "email" ? "bg-indigo-600 text-white" : "bg-indigo-50 text-slate-700"
+                }`}
+              >
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setSignInMode("pin")}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+                  signInMode === "pin" ? "bg-indigo-600 text-white" : "bg-indigo-50 text-slate-700"
+                }`}
+              >
+                PIN
+              </button>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">
-                PIN
+            {signInMode === "email" ? (
+              <>
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700">Email</label>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full aac-input px-3 py-2 text-base"
+                    placeholder="you@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700">Password</label>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full aac-input px-3 py-2 text-base"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700">PIN</label>
                 <input
                   type="password"
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  className="mt-1 w-full aac-input px-3 py-2 text-base"
-                  placeholder="Enter your 4-digit PIN"
+                  className="w-full aac-input px-3 py-2 text-base"
+                  placeholder="Enter PIN"
                 />
-              </label>
-              <p className="text-xs text-slate-500">
-                Demo values (from your .env): Parent 1234, Carer 2345, Clinician 3456.
-              </p>
-            </div>
+                <p className="text-xs text-slate-500">
+                  PIN shared with you for this device (by parent or clinician).
+                </p>
+              </div>
+            )}
 
-            <Button type="submit" disabled={auth.loading || !pin.trim()}>
+            <Button
+              type="submit"
+              disabled={
+                auth.loading ||
+                (signInMode === "email" ? !email.trim() || !password : !pin.trim())
+              }
+            >
               {auth.loading ? "Signing in…" : "Sign in"}
             </Button>
 
@@ -255,7 +374,7 @@ export function SettingsPage() {
         <div className="aac-panel rounded-[28px] border-2 border-indigo-100 bg-white/70 backdrop-blur p-6 sm:p-8 shadow-[var(--shadow)] space-y-4">
           <h2 className="text-lg font-bold">Profile details</h2>
           <p className="text-sm text-slate-600 max-w-2xl">
-            Sign in with a Parent, Carer, or Clinician PIN above to view and edit profile
+            Sign in above to view and edit profile (access varies by role)
             information. Access is granted on a need-to-know basis.
           </p>
         </div>
@@ -272,31 +391,41 @@ export function SettingsPage() {
           </div>
         )}
 
-        {/* Tabs for sections */}
+        {/* Tabs for sections - visible based on role */}
         <div className="flex flex-wrap gap-2">
           {[
-            { id: "foods" as const, label: "Foods & drinks" },
-            { id: "activities" as const, label: "Activities & interests" },
-            { id: "family" as const, label: "Family" },
-            { id: "school" as const, label: "School" },
-          ].map((tab) => {
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={[
-                  "rounded-full px-4 py-2 text-sm font-semibold border transition-colors",
-                  active
-                    ? "bg-indigo-600 text-white border-indigo-600"
-                    : "bg-white/80 text-slate-800 border-indigo-100 hover:bg-indigo-50",
-                ].join(" ")}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+            {
+              id: "foods" as const,
+              label: "Foods & drinks",
+              visible: canEditFoodsAndActivities,
+            },
+            {
+              id: "activities" as const,
+              label: "Activities & interests",
+              visible: canEditFoodsAndActivities,
+            },
+            { id: "family" as const, label: "Family", visible: canEditFamily },
+            { id: "school" as const, label: "School", visible: canEditSchool },
+          ]
+            .filter((t) => t.visible)
+            .map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={[
+                    "rounded-full px-4 py-2 text-sm font-semibold border transition-colors",
+                    active
+                      ? "bg-indigo-600 text-white border-indigo-600"
+                      : "bg-white/80 text-slate-800 border-indigo-100 hover:bg-indigo-50",
+                  ].join(" ")}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
         </div>
 
         <div>
@@ -320,12 +449,39 @@ export function SettingsPage() {
 
             <fieldset
               className="space-y-3"
-              disabled={!canEditAll}
-              aria-disabled={!canEditAll}
+              disabled={
+                (activeTab === "foods" || activeTab === "activities")
+                  ? !canEditFoodsAndActivities
+                  : activeTab === "family"
+                    ? !canEditFamily
+                    : activeTab === "school"
+                      ? !canEditSchool
+                      : true
+              }
+              aria-disabled={
+                (activeTab === "foods" || activeTab === "activities")
+                  ? !canEditFoodsAndActivities
+                  : activeTab === "family"
+                    ? !canEditFamily
+                    : activeTab === "school"
+                      ? !canEditSchool
+                      : true
+              }
             >
-              {!canEditAll && (
+              {(activeTab === "foods" || activeTab === "activities") &&
+                !canEditFoodsAndActivities && (
+                  <p className="text-xs text-slate-500">
+                    Read‑only. Ask a parent or clinician to update.
+                  </p>
+                )}
+              {activeTab === "family" && !canEditFamily && (
                 <p className="text-xs text-slate-500">
-                  Read‑only for carers. Ask a parent or clinician to update this.
+                  Family is only available to parents and clinicians.
+                </p>
+              )}
+              {activeTab === "school" && !canEditSchool && (
+                <p className="text-xs text-slate-500">
+                  School is only available to parents, clinicians, and school staff.
                 </p>
               )}
 
@@ -353,7 +509,7 @@ export function SettingsPage() {
                         <Button
                           type="button"
                           size="sm"
-                          disabled={!newFoodLabel.trim() || prefsLoading || !canEditAll}
+                          disabled={!newFoodLabel.trim() || prefsLoading || !canEditFoodsAndActivities}
                           onClick={async () => {
                             const label = newFoodLabel.trim();
                             if (!label) return;
@@ -391,7 +547,7 @@ export function SettingsPage() {
                           className="h-9 w-9 rounded-xl bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-700 overflow-hidden"
                           title={item.imageUrl ? "Change icon" : "Add icon"}
                           onClick={async () => {
-                            if (!canEditAll) return;
+                            if (!canEditFoodsAndActivities) return;
                             const current = item.imageUrl ?? "";
                             const next = window.prompt("Image URL for this food", current);
                             if (next === null) return;
@@ -436,7 +592,7 @@ export function SettingsPage() {
                             </div>
                           )}
                         </div>
-                        {canEditAll && (
+                        {canEditFoodsAndActivities && (
                           <select
                             className="aac-input px-2 py-1 text-xs rounded-lg border border-indigo-100 bg-white"
                             value={item.scope}
@@ -464,7 +620,7 @@ export function SettingsPage() {
                             <option value="BOTH">Both</option>
                           </select>
                         )}
-                        {canEditAll && (
+                        {canEditFoodsAndActivities && (
                           <button
                             type="button"
                             onClick={async () => {
@@ -517,7 +673,7 @@ export function SettingsPage() {
                         <Button
                           type="button"
                           size="sm"
-                          disabled={!newDrinkLabel.trim() || prefsLoading || !canEditAll}
+                          disabled={!newDrinkLabel.trim() || prefsLoading || !canEditFoodsAndActivities}
                           onClick={async () => {
                             const label = newDrinkLabel.trim();
                             if (!label) return;
@@ -554,7 +710,7 @@ export function SettingsPage() {
                             className="h-9 w-9 rounded-xl bg-sky-100 flex items-center justify-center text-sm font-bold text-sky-700 overflow-hidden"
                             title={item.imageUrl ? "Change icon" : "Add icon"}
                             onClick={async () => {
-                              if (!canEditAll) return;
+                              if (!canEditFoodsAndActivities) return;
                               const current = item.imageUrl ?? "";
                               const next = window.prompt("Image URL for this drink", current);
                               if (next === null) return;
@@ -599,7 +755,7 @@ export function SettingsPage() {
                               </div>
                             )}
                           </div>
-                          {canEditAll && (
+                          {canEditFoodsAndActivities && (
                             <select
                               className="aac-input px-2 py-1 text-xs rounded-lg border border-indigo-100 bg-white"
                               value={item.scope}
@@ -627,7 +783,7 @@ export function SettingsPage() {
                               <option value="BOTH">Both</option>
                             </select>
                           )}
-                          {canEditAll && (
+                          {canEditFoodsAndActivities && (
                             <button
                               type="button"
                               onClick={async () => {
@@ -696,7 +852,7 @@ export function SettingsPage() {
                       <Button
                         type="button"
                         size="sm"
-                        disabled={!newActivityLabel.trim() || prefsLoading || !canEditAll}
+                        disabled={!newActivityLabel.trim() || prefsLoading || !canEditFoodsAndActivities}
                         onClick={async () => {
                           const label = newActivityLabel.trim();
                           if (!label) return;
@@ -734,7 +890,7 @@ export function SettingsPage() {
                           className="h-9 w-9 rounded-xl bg-emerald-100 flex items-center justify-center text-sm font-bold text-emerald-700 overflow-hidden"
                           title={item.imageUrl ? "Change icon" : "Add icon"}
                           onClick={async () => {
-                            if (!canEditAll) return;
+                            if (!canEditFoodsAndActivities) return;
                             const current = item.imageUrl ?? "";
                             const next = window.prompt("Image URL for this activity", current);
                             if (next === null) return;
@@ -779,7 +935,7 @@ export function SettingsPage() {
                             </div>
                           )}
                         </div>
-                        {canEditAll && (
+                        {canEditFoodsAndActivities && (
                           <select
                             className="aac-input px-2 py-1 text-xs rounded-lg border border-indigo-100 bg-white"
                             value={item.scope}
@@ -807,7 +963,7 @@ export function SettingsPage() {
                             <option value="BOTH">Both</option>
                           </select>
                         )}
-                        {canEditAll && (
+                        {canEditFoodsAndActivities && (
                           <button
                             type="button"
                             onClick={async () => {
@@ -859,10 +1015,10 @@ export function SettingsPage() {
             {activeTab === "family" && (
               <fieldset
                 className="space-y-3"
-                disabled={!canEditAll}
-                aria-disabled={!canEditAll}
+                disabled={!canEditFamily}
+                aria-disabled={!canEditFamily}
               >
-                {!canEditAll && (
+                {!canEditFamily && (
                   <p className="text-xs text-slate-500">
                     Read‑only for carers. Ask a parent or clinician to update this.
                   </p>
@@ -880,7 +1036,7 @@ export function SettingsPage() {
                     <Button
                       type="button"
                       size="sm"
-                      disabled={!newFamilyLabel.trim() || prefsLoading || !canEditAll}
+                      disabled={!newFamilyLabel.trim() || prefsLoading || !canEditFamily}
                       onClick={async () => {
                         const label = newFamilyLabel.trim();
                         if (!label) return;
@@ -917,7 +1073,7 @@ export function SettingsPage() {
                         className="h-9 w-9 rounded-xl bg-pink-100 flex items-center justify-center text-sm font-bold text-pink-700 overflow-hidden"
                         title={item.imageUrl ? "Change photo" : "Add photo"}
                         onClick={async () => {
-                          if (!canEditAll) return;
+                          if (!canEditFamily) return;
                           const current = item.imageUrl ?? "";
                           const next = window.prompt("Image URL for this person", current);
                           if (next === null) return;
@@ -962,7 +1118,7 @@ export function SettingsPage() {
                           </div>
                         )}
                       </div>
-                      {canEditAll && (
+                      {canEditFamily && (
                         <button
                           type="button"
                           onClick={async () => {
@@ -1006,10 +1162,10 @@ export function SettingsPage() {
 
                 <fieldset
                   className="space-y-3"
-                  disabled={!(canEditAll || canEditSchoolOnly)}
-                  aria-disabled={!(canEditAll || canEditSchoolOnly)}
+                  disabled={!(canEditSchool)}
+                  aria-disabled={!(canEditSchool)}
                 >
-                  {!(canEditAll || canEditSchoolOnly) && (
+                  {!(canEditSchool) && (
                     <p className="text-xs text-slate-500">
                       Sign in with a Parent, Carer, or Clinician PIN to edit school details.
                     </p>
@@ -1028,7 +1184,7 @@ export function SettingsPage() {
                         type="button"
                         size="sm"
                         disabled={
-                          !newPeerLabel.trim() || prefsLoading || !(canEditAll || canEditSchoolOnly)
+                          !newPeerLabel.trim() || prefsLoading || !(canEditSchool)
                         }
                         onClick={async () => {
                           const label = newPeerLabel.trim();
@@ -1065,7 +1221,7 @@ export function SettingsPage() {
                           {item.label.charAt(0).toUpperCase()}
                         </span>
                         <span className="flex-1 truncate text-sm">{item.label}</span>
-                        {(canEditAll || canEditSchoolOnly) && (
+                        {(canEditSchool) && (
                           <button
                             type="button"
                             onClick={async () => {
@@ -1109,7 +1265,7 @@ export function SettingsPage() {
                         type="button"
                         size="sm"
                         disabled={
-                          !newTeacherLabel.trim() || prefsLoading || !(canEditAll || canEditSchoolOnly)
+                          !newTeacherLabel.trim() || prefsLoading || !(canEditSchool)
                         }
                         onClick={async () => {
                           const label = newTeacherLabel.trim();
@@ -1146,7 +1302,7 @@ export function SettingsPage() {
                           {item.label.charAt(0).toUpperCase()}
                         </span>
                         <span className="flex-1 truncate text-sm">{item.label}</span>
-                        {(canEditAll || canEditSchoolOnly) && (
+                        {(canEditSchool) && (
                           <button
                             type="button"
                             onClick={async () => {
@@ -1178,6 +1334,91 @@ export function SettingsPage() {
                   </div>
 
                   <label className="block text-xs font-semibold text-slate-700">
+                    Bus driver / assistant
+                    <div className="mt-1 flex gap-2">
+                      <input
+                        className="flex-1 aac-input px-3 py-2 text-sm"
+                        placeholder="e.g. Dave (driver), Sarah (assistant)"
+                        value={newBusStaffLabel}
+                        onChange={(e) => setNewBusStaffLabel(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={
+                          !newBusStaffLabel.trim() || prefsLoading || !(canEditSchool)
+                        }
+                        onClick={async () => {
+                          const label = newBusStaffLabel.trim();
+                          if (!label) return;
+                          try {
+                            const created = await preferencesApi.create({
+                              kind: "BUS_STAFF",
+                              label,
+                              scope: "SCHOOL",
+                            });
+                            setBusStaffItems((items) => [created, ...items]);
+                            setNewBusStaffLabel("");
+                          } catch (err) {
+                            setPrefsError(
+                              err instanceof Error
+                                ? err.message
+                                : "Failed to add bus staff"
+                            );
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </label>
+
+                  <p className="text-[11px] text-slate-500 -mt-1">
+                    Shown when the communicator is on the bus (morning and afternoon commute).
+                  </p>
+
+                  <div className="mt-2 grid gap-2">
+                    {busStaffItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-2 rounded-xl border border-indigo-100 bg-white/80 px-3 py-2"
+                      >
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-xs font-bold text-amber-700">
+                          {item.label.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="flex-1 truncate text-sm">{item.label}</span>
+                        {(canEditSchool) && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await preferencesApi.remove(item.id);
+                                setBusStaffItems((items) =>
+                                  items.filter((x) => x.id !== item.id)
+                                );
+                              } catch (err) {
+                                setPrefsError(
+                                  err instanceof Error
+                                    ? err.message
+                                    : "Failed to delete bus staff"
+                                );
+                              }
+                            }}
+                            className="text-[11px] text-rose-600 hover:text-rose-700"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {!busStaffItems.length && (
+                      <p className="text-xs text-slate-500">
+                        No bus staff saved yet. Add driver or assistant for bus-time conversations.
+                      </p>
+                    )}
+                  </div>
+
+                  <label className="block text-xs font-semibold text-slate-700">
                     Subjects & school activities
                     <div className="mt-1 flex gap-2">
                       <input
@@ -1190,7 +1431,7 @@ export function SettingsPage() {
                         type="button"
                         size="sm"
                         disabled={
-                          !newSubjectLabel.trim() || prefsLoading || !(canEditAll || canEditSchoolOnly)
+                          !newSubjectLabel.trim() || prefsLoading || !(canEditSchool)
                         }
                         onClick={async () => {
                           const label = newSubjectLabel.trim();
@@ -1227,7 +1468,7 @@ export function SettingsPage() {
                           {item.label.charAt(0).toUpperCase()}
                         </span>
                         <span className="flex-1 truncate text-sm">{item.label}</span>
-                        {(canEditAll || canEditSchoolOnly) && (
+                        {(canEditSchool) && (
                           <button
                             type="button"
                             onClick={async () => {
@@ -1264,10 +1505,15 @@ export function SettingsPage() {
         </div>
 
         <div className="flex justify-end">
+          {!canEditProfile && (
+            <p className="text-xs text-slate-500 mr-4 self-center">
+              Only parents and clinicians can edit profile details.
+            </p>
+          )}
           <Button
             type="button"
             onClick={() => void saveProfile()}
-            disabled={profileLoading || !profile}
+            disabled={profileLoading || !profile || !canEditProfile}
           >
             {profileLoading ? "Saving…" : "Save profile"}
           </Button>

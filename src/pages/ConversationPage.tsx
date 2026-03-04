@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { speakText } from "../api/tts";
 import { useSpeechToText } from "../hooks/useSpeechToText";
 import { getDialogueReplies, type DialogueResponse } from "../api/dialogue";
+import { interactionsApi } from "../api/interactions";
 
 type LocationKey = "HOME" | "SCHOOL" | "OUT";
 
@@ -118,7 +119,7 @@ const KIND_ICON_MAP: Record<string, string> = {
   GENERIC: "mdi:message",
 };
 
-// Fallback label-based mapping – clear, literal icons for users who may not read
+// Colourful icon mapping – Twemoji (clear, literal) for AAC users who may not read
 const ICONIFY_MAP: Record<string, string> = {
   yes: "twemoji:thumbs-up",
   no: "twemoji:thumbs-down",
@@ -134,11 +135,12 @@ const ICONIFY_MAP: Record<string, string> = {
 
   water: "twemoji:potable-water",
   juice: "twemoji:cup-with-straw",
+  "apple juice": "twemoji:cup-with-straw",
+  "orange juice": "twemoji:cup-with-straw",
   milk: "twemoji:glass-of-milk",
   tea: "twemoji:teacup-without-handle",
   coffee: "twemoji:hot-beverage",
   "chocolate milk": "twemoji:glass-of-milk",
-
   glass: "twemoji:glass-of-milk",
   "big glass": "twemoji:clinking-glasses",
   "small glass": "twemoji:teacup-without-handle",
@@ -155,6 +157,11 @@ const ICONIFY_MAP: Record<string, string> = {
   fruit: "twemoji:grapes",
   yogurt: "twemoji:soft-ice-cream",
   pizza: "twemoji:slice-of-pizza",
+  cereal: "twemoji:bowl-with-spoon",
+  orange: "twemoji:tangerine",
+  cupcake: "twemoji:cupcake",
+  biscuits: "twemoji:cookie",
+  cookie: "twemoji:cookie",
 
   ice: "twemoji:ice-cube",
   "no ice": "twemoji:no-entry",
@@ -174,6 +181,19 @@ const ICONIFY_MAP: Record<string, string> = {
   okay: "twemoji:neutral-face",
   "not great": "twemoji:slightly-frowning-face",
   sad: "twemoji:slightly-frowning-face",
+
+  bluey: "twemoji:dog-face",
+  tv: "twemoji:television",
+  "peppa pig": "twemoji:pig-face",
+  cocomelon: "twemoji:melon",
+  watch: "twemoji:television",
+  play: "twemoji:game-die",
+  "ipad": "twemoji:mobile-phone",
+  tablet: "twemoji:mobile-phone",
+  outside: "twemoji:sun",
+  activity: "twemoji:person-running",
+  game: "twemoji:game-die",
+  book: "twemoji:open-book",
 };
 
 function iconifyKeyFor(label: string) {
@@ -207,60 +227,124 @@ function iconifyKeyFor(label: string) {
   if (t.includes("good") && !t.includes("not")) return ICONIFY_MAP.good;
   if (t.includes("okay")) return ICONIFY_MAP.okay;
   if (t.includes("not great")) return ICONIFY_MAP["not great"];
+  if (t.includes("bluey")) return ICONIFY_MAP.bluey;
+  if (t.includes("peppa") || t.includes("pig")) return ICONIFY_MAP["peppa pig"];
+  if (t.includes("cocomelon") || t.includes("melon")) return ICONIFY_MAP.cocomelon;
+  if (t.includes("tv") || t.includes("television") || t.includes("watch")) return ICONIFY_MAP.tv;
+  if (t.includes("ipad") || t.includes("tablet") || t.includes("phone")) return ICONIFY_MAP.ipad;
+  if (t.includes("outside") || t.includes("playground")) return ICONIFY_MAP.outside;
+  if (t.includes("play") || t.includes("game")) return ICONIFY_MAP.play;
+  if (t.includes("orange")) return ICONIFY_MAP.orange;
+  if (t.includes("cereal")) return ICONIFY_MAP.cereal;
+  if (t.includes("book")) return ICONIFY_MAP.book;
+  if (t.includes("cupcake") || t.includes("cake")) return ICONIFY_MAP.cupcake;
+  if (t.includes("biscuit") || t.includes("cookie")) return ICONIFY_MAP.cookie;
 
   return "";
 }
 
-const PICTogram_SIZE = 88;
+/** Fix "a two" → "two", "a 2" → "2" etc. when LLM incorrectly adds article before quantity. */
+function fixArticleBeforeQuantity(text: string): string {
+  if (!text || typeof text !== "string") return text;
+  return text
+    .replace(/\b(a|an)\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/gi, "$2")
+    .trim();
+}
+
+const WORD_TO_NUM: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+};
+
+/** Parse "Two cupcakes" → { count: 2, itemLabel: "cupcakes" }. No number → count 1. */
+function parseQuantityAndItem(label: string): { count: number; itemLabel: string } {
+  const trimmed = (label || "").trim();
+  if (!trimmed) return { count: 1, itemLabel: "" };
+  const m = trimmed.match(/^(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(.+)$/i);
+  if (m) {
+    const numPart = m[1]!.toLowerCase();
+    const item = m[2]!.trim();
+    const count = WORD_TO_NUM[numPart] ?? (parseInt(numPart, 10) || 1);
+    return { count: Math.min(Math.max(count, 1), 10), itemLabel: item };
+  }
+  return { count: 1, itemLabel: trimmed };
+}
+
+const PICTogram_SIZE = 100;
 
 function Pictogram({
   label,
   iconUrl,
   kind,
   size = PICTogram_SIZE,
+  count = 1,
 }: {
   label: string;
   iconUrl?: string | null;
   kind?: string | null;
   size?: number;
+  count?: number;
 }) {
-  if (iconUrl) {
+  const { count: qty, itemLabel } = parseQuantityAndItem(label);
+  const displayCount = count > 1 ? count : qty;
+  const iconLabel = itemLabel || label;
+
+  const renderOne = () => {
+    if (iconUrl) {
+      return (
+        <span className="aac-picto shrink-0" aria-hidden="true">
+          <img src={iconUrl} alt="" className="object-cover rounded-2xl" style={{ width: size, height: size }} />
+        </span>
+      );
+    }
+
+    const key = iconifyKeyFor(iconLabel);
+    if (key) {
+      return (
+        <span className="aac-picto shrink-0" aria-hidden="true">
+          <Icon icon={key} width={size} height={size} />
+        </span>
+      );
+    }
+
+    if (kind && KIND_ICON_MAP[kind]) {
+      return (
+        <span className="aac-picto shrink-0" aria-hidden="true">
+          <Icon icon={KIND_ICON_MAP[kind]} width={size} height={size} />
+        </span>
+      );
+    }
+
+    const clean = stripEmojiPrefix(iconLabel);
+    const letter = (clean.trim()[0] || "?").toUpperCase();
     return (
-      <span className="aac-picto shrink-0" aria-hidden="true">
-        <img src={iconUrl} alt="" className="object-cover rounded-2xl" style={{ width: size, height: size }} />
+      <span
+        className="aac-letter shrink-0 inline-flex items-center justify-center rounded-2xl font-black bg-white/60"
+        aria-hidden="true"
+        style={{ width: size, height: size, fontSize: size * 0.45 }}
+      >
+        {letter}
+      </span>
+    );
+  };
+
+  if (displayCount > 1) {
+    const iconSize = Math.round(size * 0.7);
+    return (
+      <span className="inline-flex items-center justify-center gap-0.5 shrink-0" aria-hidden="true">
+        {Array.from({ length: Math.min(displayCount, 5) }).map((_, i) => (
+          <span key={i} style={{ width: iconSize, height: iconSize }}>
+            {iconUrl ? (
+              <img src={iconUrl} alt="" className="object-cover rounded-lg w-full h-full" />
+            ) : (
+              <Icon icon={iconifyKeyFor(iconLabel) || KIND_ICON_MAP[kind || ""] || "twemoji:cupcake"} width={iconSize} height={iconSize} />
+            )}
+          </span>
+        ))}
       </span>
     );
   }
 
-  // Prefer label-specific icon over generic kind (e.g. apple → 🍎 not generic food)
-  const key = iconifyKeyFor(label);
-  if (key) {
-    return (
-      <span className="aac-picto shrink-0" aria-hidden="true">
-        <Icon icon={key} width={size} height={size} />
-      </span>
-    );
-  }
-
-  if (kind && KIND_ICON_MAP[kind]) {
-    return (
-      <span className="aac-picto shrink-0" aria-hidden="true">
-        <Icon icon={KIND_ICON_MAP[kind]} width={size} height={size} />
-      </span>
-    );
-  }
-
-  const clean = stripEmojiPrefix(label);
-  const letter = (clean.trim()[0] || "?").toUpperCase();
-  return (
-    <span
-      className="aac-letter shrink-0 inline-flex items-center justify-center rounded-2xl font-black bg-white/60"
-      aria-hidden="true"
-      style={{ width: size, height: size, fontSize: size * 0.45 }}
-    >
-      {letter}
-    </span>
-  );
+  return renderOne();
 }
 
 export function ConversationPage() {
@@ -658,13 +742,17 @@ export function ConversationPage() {
               <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
                 {replies.map((r, idx) => {
                   const shortLabel = stripEmojiPrefix(r.label || "Option") || "Option";
+                  const displayText = fixArticleBeforeQuantity(r.text);
                   return (
                     <button
                       key={`${r.label}-${r.text}`}
                       type="button"
-                      onClick={() => void speak(r.text)}
+                      onClick={() => {
+                        void speak(displayText);
+                        interactionsApi.record({ location, promptType: "REPLY", selectedText: displayText });
+                      }}
                       disabled={speaking}
-                      aria-label={r.text}
+                      aria-label={displayText}
                       className={`aac-tile aac-tile-animate ${tones[idx]} flex flex-col items-center justify-between py-6 gap-3 active:scale-[0.98] transition-transform`}
                       style={{ animationDelay: `${idx * 80}ms` }}
                     >
@@ -676,7 +764,7 @@ export function ConversationPage() {
                         />
                         <div className="aac-tile-label text-center text-xl sm:text-2xl">{shortLabel}</div>
                         {showSpokenText && (
-                          <div className="aac-tile-speech text-center text-base">{r.text}</div>
+                          <div className="aac-tile-speech text-center text-base">{displayText}</div>
                         )}
                       </div>
 
@@ -730,18 +818,22 @@ export function ConversationPage() {
                 <div className="flex flex-wrap gap-3">
                   {g.items.slice(0, 18).map((item, optIdx) => {
                     const label = item ? item[0].toUpperCase() + item.slice(1) : "Item";
-                    const iconKey = iconifyKeyFor(label) || "twemoji:speech-balloon";
+                    const iconKey = iconifyKeyFor(label) || "twemoji:speaking-head";
                     return (
                       <button
                         key={item}
                         type="button"
-                        onClick={() => void speak(phraseChoice(label))}
+                        onClick={() => {
+                          const speech = phraseChoice(label);
+                          void speak(speech);
+                          interactionsApi.record({ location, promptType: "PHRASE_CHOICE", selectedText: speech });
+                        }}
                         disabled={speaking}
                         className="aac-tile aac-option-animate flex flex-col items-center justify-center gap-2 min-w-[100px] py-4 px-3 rounded-2xl border-2 transition-transform active:scale-95 hover:scale-[1.02] hover:-translate-y-0.5"
                         style={{ animationDelay: `${Math.min(optIdx * 25, 300)}ms` }}
                         aria-label={`${label}, please`}
                       >
-                        <Icon icon={iconKey} width="44" height="44" aria-hidden />
+                        <Icon icon={iconKey} width="80" height="80" aria-hidden />
                         <span className="text-sm font-bold text-center leading-tight">{label}</span>
                       </button>
                     );
@@ -755,7 +847,9 @@ export function ConversationPage() {
                       onClick={() => {
                         const first = g.items[0];
                         const label = first[0].toUpperCase() + first.slice(1);
-                        return void speak(phraseChoice(label));
+                        const speech = phraseChoice(label);
+                        void speak(speech);
+                        interactionsApi.record({ location, promptType: "PHRASE_CHOICE", selectedText: speech });
                       }}
                       disabled={speaking}
                       className="rounded-[18px] px-4 py-4 min-h-[48px]"
@@ -770,7 +864,9 @@ export function ConversationPage() {
                       onClick={() => {
                         const first = g.items[0];
                         const label = first[0].toUpperCase() + first.slice(1);
-                        return void speak(phraseInstead(label));
+                        const speech = phraseInstead(label);
+                        void speak(speech);
+                        interactionsApi.record({ location, promptType: "PHRASE_INSTEAD", selectedText: speech });
                       }}
                       disabled={speaking}
                       className="rounded-[18px] px-4 py-4 min-h-[48px]"

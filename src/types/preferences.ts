@@ -5,6 +5,7 @@ export type PreferenceKind =
   | "FAMILY_MEMBER"
   | "SCHOOL_PEER"
   | "TEACHER"
+  | "BUS_STAFF"
   | "SUBJECT"
   | "SCHOOL_ACTIVITY";
 

@@ -36,7 +36,11 @@ export const phrasesApi = {
     const res = await fetch(`/api/phrases`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        text: payload.text,
+        category: payload.category,
+        iconUrl: payload.iconUrl ?? null,
+      }),
     });
     return handleJson<Phrase>(res);
   },
@@ -45,7 +49,11 @@ export const phrasesApi = {
     const res = await fetch(`/api/phrases/${encodeURIComponent(id)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        text: payload.text,
+        category: payload.category,
+        iconUrl: payload.iconUrl ?? null,
+      }),
     });
     return handleJson<Phrase>(res);
   },
