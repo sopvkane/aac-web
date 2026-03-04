@@ -246,11 +246,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <header
-        className="space-y-1"
-        onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
+      <header className="space-y-1">
         <p className="text-sm font-semibold tracking-wide text-indigo-600 uppercase">
           Settings
         </p>
@@ -306,8 +302,11 @@ export function SettingsPage() {
             {signInMode === "email" ? (
               <>
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700">Email</label>
+                  <label htmlFor="settings-email" className="block text-sm font-semibold text-slate-700">
+                    Email
+                  </label>
                   <input
+                    id="settings-email"
                     type="email"
                     autoComplete="email"
                     value={email}
@@ -317,8 +316,11 @@ export function SettingsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700">Password</label>
+                  <label htmlFor="settings-password" className="block text-sm font-semibold text-slate-700">
+                    Password
+                  </label>
                   <input
+                    id="settings-password"
                     type="password"
                     autoComplete="current-password"
                     value={password}
@@ -330,8 +332,11 @@ export function SettingsPage() {
               </>
             ) : (
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">PIN</label>
+                <label htmlFor="settings-pin" className="block text-sm font-semibold text-slate-700">
+                  PIN
+                </label>
                 <input
+                  id="settings-pin"
                   type="password"
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -1523,4 +1528,3 @@ export function SettingsPage() {
     </div>
   );
 }
-

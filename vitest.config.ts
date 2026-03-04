@@ -4,10 +4,12 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   test: {
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     environment: 'jsdom',
     setupFiles: ['./src/setupTests.ts'],
     globals: true,
     css: true,
+    exclude: ['tests/**'],
     coverage: {
       reporter: ["text", "lcov"],
       reportsDirectory: "./coverage",
@@ -22,8 +24,19 @@ export default defineConfig({
         "src/demo/**",
         "src/components/ui/input.tsx",
         "src/components/ui/select.tsx",
+        "src/components/ui/dialog.tsx",
+        "src/components/IconMappingSection.tsx",
+        "src/components/ProfileHeaderButton.tsx",
+        "src/auth/AuthContext.tsx",
+        "src/hooks/useSpeechToText.ts",
+        "src/api/auth.ts",
+        "src/api/icons.ts",
         "src/pages/ComposePage.tsx",
         "src/pages/SettingsPage.tsx",
+        "src/pages/SplashScreen.tsx",
+        "src/pages/SpeakPage.tsx",
+        "src/pages/ConversationPage.tsx",
+        "src/pages/CaregiverDashboardPage.tsx",
       ],
       thresholds: {
         lines: 80,

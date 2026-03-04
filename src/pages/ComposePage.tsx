@@ -264,10 +264,11 @@ export function ConversationPage() {
           </p>
 
           <div className="mt-6">
-            <label className="text-sm font-semibold text-slate-700">
+            <label htmlFor="compose-name" className="text-sm font-semibold text-slate-700">
               Your name
             </label>
             <input
+              id="compose-name"
               ref={nameRef}
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}

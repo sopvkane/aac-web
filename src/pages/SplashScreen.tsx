@@ -93,10 +93,11 @@ export function SplashScreen() {
               <h2 className="mb-4 text-lg font-bold text-slate-800">Sign in with your account</h2>
               <form onSubmit={handleSignIn} className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700">
+                  <label htmlFor="splash-signin-email" className="block text-sm font-semibold text-slate-700">
                     Email
                   </label>
                   <input
+                    id="splash-signin-email"
                     type="email"
                     autoComplete="email"
                     value={email}
@@ -107,10 +108,11 @@ export function SplashScreen() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700">
+                  <label htmlFor="splash-signin-password" className="block text-sm font-semibold text-slate-700">
                     Password
                   </label>
                   <input
+                    id="splash-signin-password"
                     type="password"
                     autoComplete="current-password"
                     value={password}
@@ -147,10 +149,11 @@ export function SplashScreen() {
               </p>
               <form onSubmit={handlePinSignIn} className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700">
+                  <label htmlFor="splash-signin-pin" className="block text-sm font-semibold text-slate-700">
                     PIN
                   </label>
                   <input
+                    id="splash-signin-pin"
                     type="password"
                     inputMode="numeric"
                     autoComplete="one-time-code"
@@ -275,8 +278,11 @@ function RegistrationPage({
         <div className="rounded-[28px] border-2 border-indigo-100 bg-white/90 p-6 shadow-lg sm:p-8">
           <form onSubmit={handleRegister} className="space-y-4 text-left">
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">Display name</label>
+              <label htmlFor="register-display-name" className="block text-sm font-semibold text-slate-700">
+                Display name
+              </label>
               <input
+                id="register-display-name"
                 type="text"
                 autoComplete="name"
                 value={displayName}
@@ -287,8 +293,11 @@ function RegistrationPage({
               />
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">Email</label>
+              <label htmlFor="register-email" className="block text-sm font-semibold text-slate-700">
+                Email
+              </label>
               <input
+                id="register-email"
                 type="email"
                 autoComplete="email"
                 value={email}
@@ -299,8 +308,11 @@ function RegistrationPage({
               />
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">Password</label>
+              <label htmlFor="register-password" className="block text-sm font-semibold text-slate-700">
+                Password
+              </label>
               <input
+                id="register-password"
                 type="password"
                 autoComplete="new-password"
                 value={password}
@@ -314,8 +326,11 @@ function RegistrationPage({
               </p>
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">Confirm password</label>
+              <label htmlFor="register-confirm-password" className="block text-sm font-semibold text-slate-700">
+                Confirm password
+              </label>
               <input
+                id="register-confirm-password"
                 type="password"
                 autoComplete="new-password"
                 value={confirmPassword}
@@ -326,8 +341,11 @@ function RegistrationPage({
               />
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">Role</label>
+              <label htmlFor="register-role" className="block text-sm font-semibold text-slate-700">
+                Role
+              </label>
               <select
+                id="register-role"
                 value={role}
                 onChange={(e) => setRole(e.target.value as "PARENT_CARER" | "CLINICIAN")}
                 className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
@@ -338,8 +356,11 @@ function RegistrationPage({
               </select>
             </div>
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">Joining code</label>
+              <label htmlFor="register-joining-code" className="block text-sm font-semibold text-slate-700">
+                Joining code
+              </label>
               <input
+                id="register-joining-code"
                 type="text"
                 value={joiningCode}
                 onChange={(e) => setJoiningCode(e.target.value)}

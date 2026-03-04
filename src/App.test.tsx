@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import * as axe from "axe-core";
 import { vi } from "vitest";
 import App from "./App";
 import { AuthProvider } from "./auth/AuthContext";
@@ -49,4 +50,21 @@ test("when unauthenticated, renders splash screen", async () => {
   });
 
   expect(screen.getByText("Continue as guest")).toBeInTheDocument();
+});
+
+test("has no obvious accessibility violations on splash screen", async () => {
+  vi.mocked(authApi.me).mockRejectedValue(new Error("Unauthorized"));
+
+  renderApp();
+
+  await waitFor(() => {
+    expect(screen.getByText("Sign in with your account")).toBeInTheDocument();
+  });
+
+  const results = await axe.run(document.body, {
+    rules: {
+      "color-contrast": { enabled: false },
+    },
+  });
+  expect(results.violations).toHaveLength(0);
 });

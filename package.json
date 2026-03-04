@@ -12,7 +12,10 @@
     "format:fix": "prettier . --write",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:a11y": "vitest run src/App.test.tsx --testNamePattern=accessibility",
+    "test:e2e": "npx playwright test",
+    "test:e2e:headed": "npx playwright test --headed"
   },
   "dependencies": {
     "@iconify/react": "6.0.2",
