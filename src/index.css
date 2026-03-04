@@ -26,15 +26,15 @@
 
   --tone-a-bg: rgba(255, 237, 213, 0.95);
   --tone-a-br: rgba(251, 146, 60, 0.55);
-  --tone-a-ac: #f97316;
+  --tone-a-ac: #9a3412;
 
   --tone-b-bg: rgba(219, 234, 254, 0.95);
   --tone-b-br: rgba(96, 165, 250, 0.55);
-  --tone-b-ac: #3b82f6;
+  --tone-b-ac: #1d4ed8;
 
   --tone-c-bg: rgba(220, 252, 231, 0.95);
   --tone-c-br: rgba(34, 197, 94, 0.55);
-  --tone-c-ac: #22c55e;
+  --tone-c-ac: #166534;
 
   --shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
   --shadow-soft: 0 10px 22px rgba(15, 23, 42, 0.08);

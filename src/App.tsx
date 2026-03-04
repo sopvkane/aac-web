@@ -123,9 +123,11 @@ export default function App() {
     return (
       <>
         <SkipLink />
-        <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Loading">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
-        </div>
+        <main id="main" className="mx-auto w-full max-w-[1400px] px-3 py-6 sm:px-6 sm:py-10">
+          <div className="flex min-h-screen items-center justify-center" role="status" aria-label="Loading">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+          </div>
+        </main>
       </>
     );
   }
@@ -134,7 +136,9 @@ export default function App() {
     return (
       <>
         <SkipLink />
-        <SplashScreen />
+        <main id="main" className="mx-auto w-full max-w-[1400px] px-3 py-6 sm:px-6 sm:py-10">
+          <SplashScreen />
+        </main>
       </>
     );
   }

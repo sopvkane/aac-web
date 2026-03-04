@@ -44,6 +44,9 @@ test("option tap speaks text", async () => {
   const user = userEvent.setup();
   render(<SpeakPage location="HOME" />);
 
+  const breakfastItems = await screen.findAllByTitle(/preview breakfast options/i);
+  await user.click(breakfastItems[0]!);
+
   const option = await screen.findByRole("button", { name: /I'd like a drink/i });
   await user.click(option);
 
@@ -55,7 +58,10 @@ test("follow-up panel opens after option with followUp", async () => {
   mockPrefList.mockResolvedValue([]);
   render(<SpeakPage location="HOME" />);
 
-  // Find an option that has followUp (e.g. "Drink" in WAKE block)
+  const breakfastItems = await screen.findAllByTitle(/preview breakfast options/i);
+  await user.click(breakfastItems[0]!);
+
+  // Find an option that has followUp (e.g. "Drink" in BREAKFAST block)
   const drinkOption = await screen.findByRole("button", { name: /I'd like a drink/i });
   await user.click(drinkOption);
 

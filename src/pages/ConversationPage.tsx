@@ -572,8 +572,11 @@ export function ConversationPage() {
           <p className="mt-3 text-lg text-slate-700">What should I call you?</p>
 
           <div className="mt-6">
-            <label className="text-sm font-semibold text-slate-700">Your name</label>
+            <label htmlFor="conversation-name" className="text-sm font-semibold text-slate-700">
+              Your name
+            </label>
             <input
+              id="conversation-name"
               ref={nameRef}
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}

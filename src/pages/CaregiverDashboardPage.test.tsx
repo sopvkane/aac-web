@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { CaregiverDashboardPage } from "./CaregiverDashboardPage";
+import { AuthProvider } from "../auth/AuthContext";
 
 vi.mock("../api/caregiver", () => ({
   caregiverApi: {
@@ -27,7 +28,11 @@ vi.mock("../api/caregiver", () => ({
 }));
 
 test("renders caregiver dashboard summary", async () => {
-  render(<CaregiverDashboardPage />);
+  render(
+    <AuthProvider>
+      <CaregiverDashboardPage />
+    </AuthProvider>,
+  );
 
   expect(await screen.findByText(/Caregiver dashboard/i)).toBeInTheDocument();
   expect(screen.getByText(/Today with Sophie/i)).toBeInTheDocument();

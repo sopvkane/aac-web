@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Home, GraduationCap, Bus, MapPin } from "lucide-react";
 import { speakText } from "../api/tts";
 import { profileApi } from "../api/profile";
 import { Button } from "../components/ui/button";
+import { Dialog } from "../components/ui/dialog";
 import { wellbeingApi } from "../api/wellbeing";
 import { preferencesApi } from "../api/preferences";
 import { interactionsApi } from "../api/interactions";
@@ -279,7 +280,7 @@ function formatTime(hour: number, minute: number) {
 
 function TodayTimeline({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- location passed for API consistency; reserved for future use
-  location,
+  location: _location,
   onItemSelect,
   testTimelineItemId,
 }: {
@@ -475,12 +476,16 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
   const [family, setFamily] = useState<PreferenceItem[]>([]);
   const [schoolPeople, setSchoolPeople] = useState<PreferenceItem[]>([]);
   const [showPainModal, setShowPainModal] = useState(false);
+  const painDialogTitleId = "pain-dialog-title";
+  const painDialogDescId = "pain-dialog-desc";
+  const painCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const [painTap, setPainTap] = useState<{ xPct: number; yPct: number } | null>(null);
   const [painSelectedArea, setPainSelectedArea] = useState<{
     bodyArea: string;
     bodyPartLabel: string;
     icon: string;
   } | null>(null);
+  const [painSeverity, setPainSeverity] = useState(5);
   const [whoToAsk, setWhoToAsk] = useState<{ option: QuickSpeakOption; speech: string } | null>(null);
   const [showWellbeingPopup, setShowWellbeingPopup] = useState(() => {
     const slot = isInWellbeingSlot();
@@ -498,11 +503,11 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
     await speakText(text);
   };
 
-  const dismissWellbeingPopup = () => {
+  const dismissWellbeingPopup = useCallback(() => {
     const slot = isInWellbeingSlot();
     if (slot) localStorage.setItem(wellbeingPopupKey(slot), "1");
     setShowWellbeingPopup(false);
-  };
+  }, []);
 
   const openFollowUpIfNeeded = (opt: QuickSpeakOption) => {
     if (opt.followUp) setFollowUpPanel(opt.followUp);
@@ -595,6 +600,33 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
     return `My ${bodyPartLabel} hurts a lot.`;
   };
 
+  const closePainModal = useCallback(() => {
+    setShowPainModal(false);
+    setPainSelectedArea(null);
+    setPainTap(null);
+    setPainSeverity(5);
+  }, []);
+
+  const selectPainArea = (selection: { bodyArea: string; bodyPartLabel: string; icon: string }) => {
+    setPainSelectedArea(selection);
+    setPainSeverity(5);
+    void speak(`My ${selection.bodyPartLabel} hurts.`);
+  };
+
+  const keyboardPainAreas: Array<{ bodyArea: string; bodyPartLabel: string; icon: string }> = [
+    { bodyArea: "HEAD", bodyPartLabel: "head", icon: "🤕" },
+    { bodyArea: "CHEST", bodyPartLabel: "chest", icon: "🫀" },
+    { bodyArea: "TUMMY", bodyPartLabel: "tummy", icon: "🤢" },
+    { bodyArea: "LEFT_ARM", bodyPartLabel: "left arm", icon: "💪" },
+    { bodyArea: "RIGHT_ARM", bodyPartLabel: "right arm", icon: "💪" },
+    { bodyArea: "LEFT_HAND", bodyPartLabel: "left hand", icon: "✋" },
+    { bodyArea: "RIGHT_HAND", bodyPartLabel: "right hand", icon: "✋" },
+    { bodyArea: "LEFT_KNEE", bodyPartLabel: "left knee", icon: "🦵" },
+    { bodyArea: "RIGHT_KNEE", bodyPartLabel: "right knee", icon: "🦵" },
+    { bodyArea: "LEFT_LEG", bodyPartLabel: "left leg", icon: "🦿" },
+    { bodyArea: "RIGHT_LEG", bodyPartLabel: "right leg", icon: "🦿" },
+  ];
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -675,7 +707,13 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
     <div className="w-full">
       <div className="grid gap-6 md:grid-cols-[320px_1fr] md:items-start">
         <TodayTimeline
-          location={displayLocation === "SCHOOL" || displayLocation === "BUS" ? "SCHOOL" : displayLocation === "OUT" ? "OUT" : "HOME"}
+          location={
+            displayLocation === "SCHOOL" || displayLocation === "BUS"
+              ? "SCHOOL"
+              : displayLocation === "OUT"
+                ? "OUT"
+                : "HOME"
+          }
           onItemSelect={handleItemSelect}
           testTimelineItemId={testTimelineItemId}
         />
@@ -726,8 +764,6 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
               <button
                 type="button"
                 onClick={() => {
-                  setPainSelectedArea(null);
-                  setPainTap(null);
                   setShowPainModal(true);
                 }}
                 className="mt-1 inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-rose-700"
@@ -881,9 +917,13 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
         </p>
       </section>
 
-      {whoToAsk && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative max-w-md w-full rounded-3xl bg-white p-6 shadow-2xl">
+      <Dialog
+        open={whoToAsk != null}
+        onClose={() => setWhoToAsk(null)}
+        titleId="who-to-ask-title"
+      >
+        {whoToAsk && (
+          <>
             <button
               type="button"
               onClick={() => setWhoToAsk(null)}
@@ -891,7 +931,7 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
             >
               Close
             </button>
-            <h2 className="mb-2 text-lg font-bold text-slate-900">
+            <h2 id="who-to-ask-title" className="mb-2 text-lg font-bold text-slate-900">
               {displayLocation === "HOME"
                 ? "Who do you want to ask?"
                 : displayLocation === "SCHOOL"
@@ -934,14 +974,19 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
             >
               Just say it (no name)
             </Button>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Dialog>
 
-      {showWellbeingPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative max-w-md w-full rounded-3xl bg-white p-6 shadow-2xl">
-            <h2 className="mb-1 text-lg font-bold text-slate-900">How are you feeling?</h2>
+      <Dialog
+        open={showWellbeingPopup}
+        onClose={dismissWellbeingPopup}
+        titleId="wellbeing-title"
+      >
+        <>
+            <h2 id="wellbeing-title" className="mb-1 text-lg font-bold text-slate-900">
+              How are you feeling?
+            </h2>
             <p className="mb-4 text-sm text-slate-600">
               {isInWellbeingSlot() === "morning"
                 ? "Good morning! Quick check-in."
@@ -973,20 +1018,22 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
             >
               Maybe later
             </button>
-          </div>
-        </div>
-      )}
+        </>
+      </Dialog>
 
-      {showPainModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative max-w-lg w-full rounded-3xl bg-white p-6 shadow-2xl">
+      <Dialog
+        open={showPainModal}
+        onClose={closePainModal}
+        titleId={painDialogTitleId}
+        descriptionId={painDialogDescId}
+        className="max-w-lg"
+        initialFocusRef={painCloseButtonRef}
+      >
+        <>
             <button
+              ref={painCloseButtonRef}
               type="button"
-              onClick={() => {
-                setShowPainModal(false);
-                setPainSelectedArea(null);
-                setPainTap(null);
-              }}
+              onClick={closePainModal}
               className="absolute right-4 top-4 text-sm text-slate-500 hover:text-slate-700"
             >
               Close
@@ -994,13 +1041,16 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
 
             {!painSelectedArea ? (
               <>
-                <h2 className="mb-2 text-lg font-bold text-slate-900">Where does it hurt?</h2>
-                <p className="mb-4 text-sm text-slate-600">
+                <h2 id={painDialogTitleId} className="mb-2 text-lg font-bold text-slate-900">
+                  Where does it hurt?
+                </h2>
+                <p id={painDialogDescId} className="mb-4 text-sm text-slate-600">
                   Tap on the picture where it hurts, or press &quot;Help now&quot;.
                 </p>
 
                 <div className="mx-auto flex w-full max-w-[480px] min-h-[420px] items-center justify-center">
-                  <div
+                  <button
+                    type="button"
                     className="relative w-full min-h-[400px] overflow-hidden rounded-3xl border-2 border-slate-200 bg-white shadow-sm aspect-square"
                     onClick={(e) => {
                       const el = e.currentTarget;
@@ -1012,11 +1062,9 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
                       const yPct = Math.max(0, Math.min(100, y * 100));
                       const result = classifyPainTap(x, y);
                       setPainTap({ xPct, yPct });
-                      setPainSelectedArea(result);
-                      void speak(`My ${result.bodyPartLabel} hurts.`);
+                      selectPainArea(result);
                     }}
-                    role="button"
-                    aria-label="Tap the body where it hurts"
+                    aria-label="Tap image to choose where it hurts"
                   >
                     <img
                       src="https://media.istockphoto.com/id/1331743543/vector/cute-beautiful-little-girl-is-standing-and-smiling-funny-child-with-pigtails-in-shorts-and-a.jpg?s=612x612&w=0&k=20&c=9jAF0jgISBhsdEOQsIOyhNr2jugxHCfGXNI8VZPc6cQ="
@@ -1039,6 +1087,25 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
                         }}
                       />
                     )}
+                  </button>
+                </div>
+                <div className="mt-4">
+                  <p className="mb-2 text-sm font-semibold text-slate-700">
+                    Or choose a body part with keyboard:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {keyboardPainAreas.map((area) => (
+                      <Button
+                        key={area.bodyArea}
+                        type="button"
+                        variant="outline"
+                        className="justify-start text-sm"
+                        onClick={() => selectPainArea(area)}
+                      >
+                        <span aria-hidden="true">{area.icon}</span>
+                        <span>{area.bodyPartLabel}</span>
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
@@ -1049,9 +1116,7 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
                     onClick={async () => {
                       await wellbeingApi.recordPain("UNKNOWN", 8, "Help now button");
                       await speak("I need help now.");
-                      setShowPainModal(false);
-                      setPainSelectedArea(null);
-                      setPainTap(null);
+                      closePainModal();
                     }}
                   >
                     Help now
@@ -1059,11 +1124,7 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      setShowPainModal(false);
-                      setPainSelectedArea(null);
-                      setPainTap(null);
-                    }}
+                    onClick={closePainModal}
                   >
                     Done
                   </Button>
@@ -1075,72 +1136,83 @@ export function SpeakPage({ location: manualLocation }: { location?: LocationKey
                   <span className="text-2xl" aria-hidden="true">
                     {painSelectedArea.icon}
                   </span>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 id={painDialogTitleId} className="text-lg font-bold text-slate-900">
                     How much does your {painSelectedArea.bodyPartLabel} hurt?
                   </h2>
                 </div>
-                <p className="mb-4 text-sm text-slate-600">
-                  Tap on the bar. Green = slightly sore, orange = hurts, red = hurts a lot.
+                <p id={painDialogDescId} className="mb-4 text-sm text-slate-600">
+                  Use the slider. 1 means slightly sore and 10 means hurts a lot.
                 </p>
 
+                <label className="block">
+                  <span className="sr-only">Pain severity from 1 to 10</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    value={painSeverity}
+                    onChange={(e) => setPainSeverity(Number(e.target.value))}
+                    className="w-full accent-rose-600"
+                  />
+                </label>
+                <div className="mt-2 flex items-center justify-between text-xs font-semibold text-slate-700">
+                  <span>1 Slightly sore</span>
+                  <span aria-live="polite">Selected: {painSeverity}</span>
+                  <span>10 Hurts a lot</span>
+                </div>
                 <div
-                  className="relative h-14 w-full rounded-2xl cursor-pointer overflow-hidden border-2 border-slate-200 shadow-inner"
+                  className="mt-3 h-2 w-full rounded-full"
                   style={{
                     background:
                       "linear-gradient(to right, #22c55e 0%, #84cc16 25%, #eab308 50%, #f97316 75%, #ef4444 100%)",
                   }}
-                  onClick={async (e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-                    const severity = Math.max(1, Math.min(10, Math.round(1 + x * 9)));
-                    const speech = painSpeechForSeverity(painSelectedArea.bodyPartLabel, severity);
-
-                    await wellbeingApi.recordPain(
-                      painSelectedArea.bodyArea,
-                      severity,
-                      `severity=${severity} from scale`
-                    );
-                    await speak(speech);
-                    setShowPainModal(false);
-                    setPainSelectedArea(null);
-                    setPainTap(null);
-                  }}
-                  role="button"
-                  aria-label="Tap to select pain severity: left = mild (1–3), middle = okay (4–6), right = severe (7–10)"
-                >
-                  <div className="absolute inset-0 flex items-center justify-between px-4 pointer-events-none">
-                    <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800 drop-shadow-sm">
-                      <span aria-hidden>😊</span> 1–3 Mild
-                    </span>
-                    <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800 drop-shadow-sm">
-                      <span aria-hidden>😐</span> 4–6 Okay
-                    </span>
-                    <span className="flex items-center gap-1.5 text-sm font-bold text-slate-800 drop-shadow-sm">
-                      <span aria-hidden>😣</span> 7–10 Severe
-                    </span>
-                  </div>
-                </div>
+                  aria-hidden="true"
+                />
 
                 <div className="mt-4 flex flex-wrap justify-between gap-3">
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      const speech = painSpeechForSeverity(
+                        painSelectedArea.bodyPartLabel,
+                        painSeverity
+                      );
+                      await wellbeingApi.recordPain(
+                        painSelectedArea.bodyArea,
+                        painSeverity,
+                        `severity=${painSeverity} from slider`
+                      );
+                      await speak(speech);
+                      closePainModal();
+                    }}
+                  >
+                    Save pain level
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => {
                       setPainSelectedArea(null);
                       setPainTap(null);
+                      setPainSeverity(5);
                     }}
                   >
                     Change location
                   </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={closePainModal}
+                  >
+                    Cancel
+                  </Button>
                 </div>
               </>
             )}
-          </div>
-        </div>
-      )}
+        </>
+      </Dialog>
         </main>
       </div>
     </div>
   );
 }
-

@@ -6,6 +6,7 @@ import { iconsApi } from "../api/icons";
 import type { Phrase } from "../types/phrase";
 import type { PreferenceItem, PreferenceKind } from "../types/preferences";
 import { Button } from "./ui/button";
+import { Dialog } from "./ui/dialog";
 import { useAuth } from "../auth/AuthContext";
 
 type IconMappingItem =
@@ -103,15 +104,15 @@ function ChangeIconModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <Dialog
+      open={true}
+      onClose={onClose}
+      titleId="change-icon-title"
+      className="max-w-md rounded-2xl border-2 border-indigo-100 p-6 shadow-xl"
     >
-      <div
-        className="w-full max-w-md rounded-2xl border-2 border-indigo-100 bg-white p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-800">Change icon for "{item.label}"</h3>
+        <h3 id="change-icon-title" className="text-lg font-bold text-slate-800">
+          Change icon for "{item.label}"
+        </h3>
         <p className="mt-1 text-sm text-slate-500">{KIND_LABELS[item.kind] ?? item.kind}</p>
 
         <div className="mt-4 space-y-3">
@@ -163,8 +164,7 @@ function ChangeIconModal({
             {saving ? "Saving…" : "Save"}
           </Button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -203,15 +203,15 @@ function EditPhraseModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <Dialog
+      open={true}
+      onClose={onClose}
+      titleId="edit-phrase-title"
+      className="max-w-md rounded-2xl border-2 border-indigo-100 p-6 shadow-xl"
     >
-      <div
-        className="w-full max-w-md rounded-2xl border-2 border-indigo-100 bg-white p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-800">Edit phrase</h3>
+        <h3 id="edit-phrase-title" className="text-lg font-bold text-slate-800">
+          Edit phrase
+        </h3>
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           <label className="block text-sm font-semibold text-slate-700">
             Text
@@ -256,8 +256,7 @@ function EditPhraseModal({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -288,15 +287,15 @@ function AddPhraseModal({ onCreated, onClose }: { onCreated: () => void; onClose
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <Dialog
+      open={true}
+      onClose={onClose}
+      titleId="add-phrase-title"
+      className="max-w-md rounded-2xl border-2 border-indigo-100 p-6 shadow-xl"
     >
-      <div
-        className="w-full max-w-md rounded-2xl border-2 border-indigo-100 bg-white p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-bold text-slate-800">Add phrase</h3>
+        <h3 id="add-phrase-title" className="text-lg font-bold text-slate-800">
+          Add phrase
+        </h3>
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           <label className="block text-sm font-semibold text-slate-700">
             Text
@@ -343,8 +342,7 @@ function AddPhraseModal({ onCreated, onClose }: { onCreated: () => void; onClose
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

@@ -30,6 +30,16 @@ export function ProfileHeaderButton() {
 
   const isGuest = auth.status === "guest";
   const isAuthenticated = auth.status === "authenticated";
+  const menuId = "profile-header-menu";
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   return (
     <div className="relative shrink-0" ref={ref}>
@@ -49,6 +59,9 @@ export function ProfileHeaderButton() {
           isAuthenticated && "border-indigo-200 bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
         )}
         aria-label={isGuest ? "Sign in" : "Account menu"}
+        aria-expanded={isAuthenticated ? open : undefined}
+        aria-haspopup={isAuthenticated ? "menu" : undefined}
+        aria-controls={isAuthenticated ? menuId : undefined}
         title={isGuest ? "Sign in" : "Account"}
       >
         <User className="h-5 w-5" strokeWidth={2.5} />
@@ -56,8 +69,10 @@ export function ProfileHeaderButton() {
 
       {open && isAuthenticated && (
         <div
+          id={menuId}
           className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-indigo-100 bg-white py-2 shadow-lg"
-          role="menu"
+          role="group"
+          aria-label="Account menu"
         >
           <div className="px-4 py-2 text-sm text-slate-600">
             Signed in as{" "}
