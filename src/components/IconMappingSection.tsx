@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { phrasesApi } from "../api/phrases";
 import { preferencesApi } from "../api/preferences";
